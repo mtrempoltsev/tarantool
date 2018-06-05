@@ -29,7 +29,7 @@
  * SUCH DAMAGE.
  */
 #include "box/lua/tuple.h"
-#include "box/tuple_update.h"
+#include "box/update/update.h"
 
 #include "lua/utils.h" /* luaT_error() */
 #include "lua/msgpack.h" /* luamp_encode_XXX() */
