@@ -139,12 +139,13 @@ update_array_extract_item(struct update_field *field, struct update_op *op)
 }
 
 int
-update_array_create(struct update_field *field, const char *data,
-		    const char *data_end, uint32_t field_count)
+update_array_create(struct update_field *field, const char *header,
+		    const char *data, const char *data_end,
+		    uint32_t field_count)
 {
 	field->type = UPDATE_ARRAY;
-	field->data = data;
-	field->size = data_end - data;
+	field->data = header;
+	field->size = data_end - header;
 	struct region *region = &fiber()->gc;
 	field->array.rope = rope_new(region);
 	if (field->array.rope == NULL)
