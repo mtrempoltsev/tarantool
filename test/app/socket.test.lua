@@ -300,8 +300,16 @@ sc:close()
 
 -- tcp_connect
 
--- test timeout
-socket.tcp_connect('127.0.0.1', 80, 0.00000000001)
+-- Test timeout. In this test, tcp_connect can return the second
+-- output value from internal.getaddrinfo (usually on Mac OS, but
+-- theoretically it can happen on Linux too). Sometimes
+-- getaddrinfo() is timed out, sometimes connect. On Linux however
+-- getaddrinfo is fast enough to never give timeout error in
+-- the case. So, there are two sources of timeout errors that are
+-- reported differently. This difference has appeared after
+-- gh-4138 patch.
+s, err = socket.tcp_connect('127.0.0.1', 80, 0.00000000001)
+s == nil
 
 -- AF_INET
 s = socket('AF_INET', 'SOCK_STREAM', 'tcp')
@@ -957,6 +965,25 @@ client:read(5, 5) == 'world'
 fiber.cancel(echo_fiber)
 client:read(1, 5) == ''
 server:close()
+
+-- gh-4138 Check getaddrinfo() error from socket:connect() only.
+-- Error code and error message returned by getaddrinfo() depends
+-- on system's gai_strerror().
+test_run:cmd("setopt delimiter ';'")
+function check_err(err)
+    if err == 'getaddrinfo: nodename nor servname provided, or not known' or
+       err == 'getaddrinfo: Servname not supported for ai_socktype' or
+       err == 'getaddrinfo: Name or service not known' then
+            return true
+    end
+    return false
+end;
+test_run:cmd("setopt delimiter ''");
+
+s, err = socket.getaddrinfo('non_exists_hostname', 3301)
+check_err(err)
+s, err = socket.connect('non_exists_hostname', 3301)
+check_err(err)
 
 test_run:cmd("clear filter")
 
