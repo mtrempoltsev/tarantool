@@ -910,6 +910,27 @@ local function upgrade_to_2_2_1()
     create_func_index()
 end
 
+local function create_constraint_space()
+    local _space = box.space[box.schema.SPACE_ID]
+    local _index = box.space[box.schema.INDEX_ID]
+    local _constraint = box.space[box.schema.CONSTRAINT_ID]
+    local MAP = setmap({})
+
+    log.info("create space _constraint")
+    local format = {{name='space_id', type='unsigned'},
+                    {name='name', type='string'},
+                    {name='type', type='string'}}
+    _space:insert{_constraint.id, ADMIN, '_constraint', 'memtx', 0, MAP, format}
+
+    log.info("create index primary on _constraint")
+    _index:insert{_constraint.id, 0, 'primary', 'tree', { unique = true },
+                  {{0, 'unsigned'}, {1, 'string'}}}
+end
+
+local function upgrade_to_2_3_0()
+    create_constraint_space()
+end
+
 --------------------------------------------------------------------------------
 
 local function get_version()
@@ -944,6 +965,7 @@ local function upgrade(options)
         {version = mkversion(2, 1, 2), func = upgrade_to_2_1_2, auto = true},
         {version = mkversion(2, 1, 3), func = upgrade_to_2_1_3, auto = true},
         {version = mkversion(2, 2, 1), func = upgrade_to_2_2_1, auto = true},
+        {version = mkversion(2, 3, 0), func = upgrade_to_2_3_0, auto = true},
     }
 
     for _, handler in ipairs(handlers) do

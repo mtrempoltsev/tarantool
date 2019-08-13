@@ -809,6 +809,31 @@ vdbe_emit_create_index(struct Parse *parse, struct space_def *def,
 	memcpy(raw, index_parts, index_parts_sz);
 	index_parts = raw;
 
+	if (idx_def->opts.is_unique == true)
+	{
+		/*
+		 * Occupy registers for 3 fields: each member in
+		 * _constraint space plus one for final msgpack tuple.
+		 */
+		int constraint_reg = sqlGetTempRange(parse, 4);
+		if (parse->create_table_def.new_space != NULL)
+			sqlVdbeAddOp2(v, OP_SCopy, space_id_reg, constraint_reg);
+		else
+			sqlVdbeAddOp2(v, OP_Integer, space_id_reg, constraint_reg);
+		sqlVdbeAddOp4(v, OP_String8, 0, constraint_reg + 1, 0, sqlDbStrDup(parse->db, idx_def->name), P4_DYNAMIC);
+		sqlVdbeAddOp4(v, OP_String8, 0, constraint_reg + 2, 0, idx_def->iid == 0 ? "pk" : "unique", P4_STATIC);
+		sqlVdbeAddOp3(v, OP_MakeRecord, constraint_reg, 3, constraint_reg + 3);
+		const char *error_msg =
+			tt_sprintf(tnt_errcode_desc(ER_CONSTRAINT_EXISTS), idx_def->name);
+		if (vdbe_emit_halt_with_presence_test(parse, BOX_CONSTRAINT_ID, 0,
+						      constraint_reg, 2,
+						      ER_CONSTRAINT_EXISTS, error_msg,
+						      false, OP_NoConflict) != 0)
+			return;
+		sqlVdbeAddOp2(v, OP_SInsert, BOX_CONSTRAINT_ID,
+			      constraint_reg + 3);
+		sqlReleaseTempRange(parse, constraint_reg, 4);
+	}
 	if (parse->create_table_def.new_space != NULL) {
 		sqlVdbeAddOp2(v, OP_SCopy, space_id_reg, entry_reg);
 		sqlVdbeAddOp2(v, OP_Integer, idx_def->iid, entry_reg + 1);
@@ -995,11 +1020,37 @@ vdbe_emit_ck_constraint_create(struct Parse *parser,
 	struct sql *db = parser->db;
 	struct Vdbe *v = sqlGetVdbe(parser);
 	assert(v != NULL);
+
+	/*
+	 * Occupy registers for 3 fields: each member in
+	 * _constraint space plus one for final msgpack tuple.
+	 */
+	int constraint_reg = sqlGetTempRange(parser, 4);
+	sqlVdbeAddOp2(v, OP_SCopy, reg_space_id, constraint_reg);
+	sqlVdbeAddOp4(v, OP_String8, 0, constraint_reg + 1, 0,
+		      sqlDbStrDup(db, ck_def->name), P4_DYNAMIC); //!!!
+	sqlVdbeAddOp4(v, OP_String8, 0, constraint_reg + 2, 0,
+		      "ck", P4_STATIC);
+	sqlVdbeAddOp3(v, OP_MakeRecord, constraint_reg, 3,
+		      constraint_reg + 3);
+	const char *error_msg =
+		tt_sprintf(tnt_errcode_desc(ER_CONSTRAINT_EXISTS),
+					    ck_def->name);
+	if (vdbe_emit_halt_with_presence_test(parser, BOX_CONSTRAINT_ID, 0,
+					      constraint_reg, 2,
+					      ER_CONSTRAINT_EXISTS, error_msg,
+					      false, OP_NoConflict) != 0)
+		return;
+	sqlVdbeAddOp2(v, OP_SInsert, BOX_CONSTRAINT_ID,
+		      constraint_reg + 3);
+	sqlReleaseTempRange(parser, constraint_reg, 4);
+
 	/*
 	 * Occupy registers for 5 fields: each member in
 	 * _ck_constraint space plus one for final msgpack tuple.
 	 */
 	int ck_constraint_reg = sqlGetTempRange(parser, 6);
+
 	sqlVdbeAddOp2(v, OP_SCopy, reg_space_id, ck_constraint_reg);
 	sqlVdbeAddOp4(v, OP_String8, 0, ck_constraint_reg + 1, 0,
 		      sqlDbStrDup(db, ck_def->name), P4_DYNAMIC);
@@ -1010,14 +1061,6 @@ vdbe_emit_ck_constraint_create(struct Parse *parser,
 		      sqlDbStrDup(db, ck_def->expr_str), P4_DYNAMIC);
 	sqlVdbeAddOp3(v, OP_MakeRecord, ck_constraint_reg, 5,
 		      ck_constraint_reg + 5);
-	const char *error_msg =
-		tt_sprintf(tnt_errcode_desc(ER_CONSTRAINT_EXISTS),
-					    ck_def->name);
-	if (vdbe_emit_halt_with_presence_test(parser, BOX_CK_CONSTRAINT_ID, 0,
-					      ck_constraint_reg, 2,
-					      ER_CONSTRAINT_EXISTS, error_msg,
-					      false, OP_NoConflict) != 0)
-		return;
 	sqlVdbeAddOp2(v, OP_SInsert, BOX_CK_CONSTRAINT_ID,
 		      ck_constraint_reg + 5);
 	VdbeComment((v, "Create CK constraint %s", ck_def->name));
@@ -1039,15 +1082,38 @@ vdbe_emit_fk_constraint_create(struct Parse *parse_context,
 	assert(fk != NULL);
 	struct Vdbe *vdbe = sqlGetVdbe(parse_context);
 	assert(vdbe != NULL);
+
+	/*
+	 * Occupy registers for 3 fields: each member in
+	 * _constraint space plus one for final msgpack tuple.
+	 */
+	int constraint_reg = sqlGetTempRange(parse_context, 4);
+	if (parse_context->create_table_def.new_space != NULL)
+		sqlVdbeAddOp2(vdbe, OP_SCopy, fk->child_id, constraint_reg);
+	// else
+	// 	sqlVdbeAddOp2(vdbe, OP_Integer, fk->child_id, constraint_reg);
+	sqlVdbeAddOp4(vdbe, OP_String8, 0, constraint_reg + 1, 0, sqlDbStrDup(parse_context->db, fk->name),
+		      P4_DYNAMIC);
+	sqlVdbeAddOp4(vdbe, OP_String8, 0, constraint_reg + 2, 0, "fk", P4_STATIC);
+	sqlVdbeAddOp3(vdbe, OP_MakeRecord, constraint_reg, 3, constraint_reg + 3);
+	const char *error_msg =
+		tt_sprintf(tnt_errcode_desc(ER_CONSTRAINT_EXISTS),
+					    fk->name);
+	if (vdbe_emit_halt_with_presence_test(parse_context, BOX_CONSTRAINT_ID, 0,
+					      constraint_reg, 2,
+					      ER_CONSTRAINT_EXISTS, error_msg,
+					      false, OP_NoConflict) != 0)
+		return;
+	sqlVdbeAddOp2(vdbe, OP_SInsert, BOX_CONSTRAINT_ID,
+		      constraint_reg + 3);
+	sqlReleaseTempRange(parse_context, constraint_reg, 4);
+
 	/*
 	 * Occupy registers for 9 fields: each member in
 	 * _fk_constraint space plus one for final msgpack tuple.
 	 */
 	int constr_tuple_reg = sqlGetTempRange(parse_context, 10);
-	char *name_copy = sqlDbStrDup(parse_context->db, fk->name);
-	if (name_copy == NULL)
-		return;
-	sqlVdbeAddOp4(vdbe, OP_String8, 0, constr_tuple_reg, 0, name_copy,
+	sqlVdbeAddOp4(vdbe, OP_String8, 0, constr_tuple_reg, 0, sqlDbStrDup(parse_context->db, fk->name),
 			  P4_DYNAMIC);
 	/*
 	 * In case we are adding FK constraints during execution
@@ -1069,18 +1135,6 @@ vdbe_emit_fk_constraint_create(struct Parse *parse_context,
 		sqlVdbeAddOp2(vdbe, OP_Integer, fk->parent_id,
 				  constr_tuple_reg + 2);
 	}
-	/*
-	 * Lets check that constraint with this name hasn't
-	 * been created before.
-	 */
-	const char *error_msg =
-		tt_sprintf(tnt_errcode_desc(ER_CONSTRAINT_EXISTS), name_copy);
-	if (vdbe_emit_halt_with_presence_test(parse_context,
-					      BOX_FK_CONSTRAINT_ID, 0,
-					      constr_tuple_reg, 2,
-					      ER_CONSTRAINT_EXISTS, error_msg,
-					      false, OP_NoConflict) != 0)
-		return;
 	sqlVdbeAddOp2(vdbe, OP_Bool, fk->is_deferred, constr_tuple_reg + 3);
 	sqlVdbeAddOp4(vdbe, OP_String8, 0, constr_tuple_reg + 4, 0,
 			  fk_constraint_match_strs[fk->match], P4_STATIC);
@@ -1474,6 +1528,42 @@ vdbe_emit_stat_space_clear(struct Parse *parse, const char *stat_table_name,
 }
 
 /**
+ * Generate VDBE program to remove entry from _constraint space.
+ *
+ * @param parse Parsing context.
+ * @param v VDBE.
+ * @param space_id Id of table which constraint belongs to.
+ * @param constraint_name Name of constraint to be dropped.
+ *        Must be allocated on head by sqlDbMalloc().
+ *        It will be freed in VDBE.
+ * @param flags P4_STATIC if need to clear @a constraint_name
+ *        within VDBE execution.
+ */
+static int
+vdbe_emit_constr_drop(struct Parse *parse, struct Vdbe *v, uint32_t space_id,
+		      char *constr_name, int flags)
+{
+	int key_reg = sqlGetTempRange(parse, 3);
+	sqlVdbeAddOp2(v, OP_Integer, space_id, key_reg);
+	sqlVdbeAddOp4(v, OP_String8, 0, key_reg + 1, 0,
+		      constr_name, flags);
+	const char *error_msg =
+		tt_sprintf(tnt_errcode_desc(ER_NO_SUCH_CONSTRAINT),
+			   constr_name);
+	if (vdbe_emit_halt_with_presence_test(parse, BOX_CONSTRAINT_ID, 0,
+					      key_reg, 2, ER_NO_SUCH_CONSTRAINT,
+					      error_msg, false,
+					      OP_Found) != 0) {
+		sqlDbFree(parse->db, constr_name);
+		return -1;
+	}
+	sqlVdbeAddOp3(v, OP_MakeRecord, key_reg, 2, key_reg + 2);
+	sqlVdbeAddOp2(v, OP_SDelete, BOX_CONSTRAINT_ID, key_reg + 2);
+	sqlReleaseTempRange(parse, key_reg, 3);
+	return 0;
+}
+
+/**
  * Generate VDBE program to remove entry from _fk_constraint space.
  *
  * @param parse_context Parsing context.
@@ -1484,25 +1574,23 @@ vdbe_emit_stat_space_clear(struct Parse *parse, const char *stat_table_name,
  */
 static void
 vdbe_emit_fk_constraint_drop(struct Parse *parse_context, char *constraint_name,
-		    uint32_t child_id)
+			     uint32_t child_id)
 {
 	struct Vdbe *vdbe = sqlGetVdbe(parse_context);
 	assert(vdbe != NULL);
+
+	if (vdbe_emit_constr_drop(parse_context, vdbe, child_id,
+				      constraint_name, P4_STATIC) != 0)
+		return;
+
 	int key_reg = sqlGetTempRange(parse_context, 3);
 	sqlVdbeAddOp4(vdbe, OP_String8, 0, key_reg, 0, constraint_name,
 			  P4_DYNAMIC);
 	sqlVdbeAddOp2(vdbe, OP_Integer, child_id,  key_reg + 1);
-	const char *error_msg =
-		tt_sprintf(tnt_errcode_desc(ER_NO_SUCH_CONSTRAINT),
-			   constraint_name);
-	if (vdbe_emit_halt_with_presence_test(parse_context,
-					      BOX_FK_CONSTRAINT_ID, 0,
-					      key_reg, 2, ER_NO_SUCH_CONSTRAINT,
-					      error_msg, false,
-					      OP_Found) != 0) {
-		sqlDbFree(parse_context->db, constraint_name);
-		return;
-	}
+	/*
+	 * DDL is transactional, so we are sure, that the tuple
+	 * exists.
+	 */
 	sqlVdbeAddOp3(vdbe, OP_MakeRecord, key_reg, 2, key_reg + 2);
 	sqlVdbeAddOp2(vdbe, OP_SDelete, BOX_FK_CONSTRAINT_ID, key_reg + 2);
 	VdbeComment((vdbe, "Delete FK constraint %s", constraint_name));
@@ -1521,18 +1609,19 @@ vdbe_emit_ck_constraint_drop(struct Parse *parser, const char *ck_name,
 			     uint32_t space_id)
 {
 	struct Vdbe *v = sqlGetVdbe(parser);
-	struct sql *db = v->db;
 	assert(v != NULL);
+
+	if (vdbe_emit_constr_drop(parser, v, space_id, (char *) ck_name,
+				  P4_STATIC) != 0)
+		return;
+
 	int key_reg = sqlGetTempRange(parser, 3);
 	sqlVdbeAddOp2(v, OP_Integer, space_id,  key_reg);
-	sqlVdbeAddOp4(v, OP_String8, 0, key_reg + 1, 0,
-		      sqlDbStrDup(db, ck_name), P4_DYNAMIC);
-	const char *error_msg =
-		tt_sprintf(tnt_errcode_desc(ER_NO_SUCH_CONSTRAINT), ck_name);
-	if (vdbe_emit_halt_with_presence_test(parser, BOX_CK_CONSTRAINT_ID, 0,
-					      key_reg, 2, ER_NO_SUCH_CONSTRAINT,
-					      error_msg, false, OP_Found) != 0)
-		return;
+	sqlVdbeAddOp4(v, OP_String8, 0, key_reg + 1, 0, ck_name, P4_DYNAMIC);
+	/*
+	 * DDL is transactional, so we are sure, that the tuple
+	 * exists.
+	 */
 	sqlVdbeAddOp3(v, OP_MakeRecord, key_reg, 2, key_reg + 2);
 	sqlVdbeAddOp2(v, OP_SDelete, BOX_CK_CONSTRAINT_ID, key_reg + 2);
 	VdbeComment((v, "Delete CK constraint %s", ck_name));
@@ -1610,13 +1699,17 @@ sql_code_drop_table(struct Parse *parse_context, struct space *space,
 		char *fk_name_dup = sqlDbStrDup(v->db, child_fk->def->name);
 		if (fk_name_dup == NULL)
 			return;
-		vdbe_emit_fk_constraint_drop(parse_context, fk_name_dup, space_id);
+		vdbe_emit_fk_constraint_drop(parse_context, fk_name_dup,
+					     space_id);
 	}
 	/* Delete all CK constraints. */
 	struct ck_constraint *ck_constraint;
 	rlist_foreach_entry(ck_constraint, &space->ck_constraint, link) {
-		vdbe_emit_ck_constraint_drop(parse_context,
-					     ck_constraint->def->name,
+		char *ck_name_dup = sqlDbStrDup(v->db,
+						ck_constraint->def->name);
+		if (ck_name_dup == NULL)
+			return;
+		vdbe_emit_ck_constraint_drop(parse_context, ck_name_dup,
 					     space_id);
 	}
 	/*
@@ -1625,6 +1718,7 @@ sql_code_drop_table(struct Parse *parse_context, struct space *space,
 	 */
 	if (!is_view) {
 		uint32_t index_count = space->index_count;
+		struct space_def *def = space->def;
 		if (index_count > 1) {
 			/*
 			 * Remove all indexes, except for primary.
@@ -1632,18 +1726,36 @@ sql_code_drop_table(struct Parse *parse_context, struct space *space,
 			 * secondary exist.
 			 */
 			for (uint32_t i = 1; i < index_count; ++i) {
-				sqlVdbeAddOp2(v, OP_Integer,
-						  space->index[i]->def->iid,
+				struct index_def *idx_def =
+					space->index[i]->def;
+				sqlVdbeAddOp2(v, OP_Integer, idx_def->iid,
 						  index_id_reg);
 				sqlVdbeAddOp3(v, OP_MakeRecord,
 						  space_id_reg, 2, idx_rec_reg);
 				sqlVdbeAddOp2(v, OP_SDelete, BOX_INDEX_ID,
 						  idx_rec_reg);
+				if (idx_def->opts.is_unique == true) {
+					char *name = sqlDbStrDup(v->db,
+								 idx_def->name);
+					if (name == NULL)
+						return;
+					if (vdbe_emit_constr_drop(parse_context,
+								  v, def->id,
+								  name,
+								  P4_DYNAMIC) != 0)
+						return;
+				}
 				VdbeComment((v,
 					     "Remove secondary index iid = %u",
 					     space->index[i]->def->iid));
 			}
 		}
+		char *name = sqlDbStrDup(v->db, space->index[0]->def->name);
+		if (name == NULL)
+			return;
+		if (vdbe_emit_constr_drop(parse_context, v, def->id, name,
+					  P4_DYNAMIC) != 0)
+			return;
 		sqlVdbeAddOp2(v, OP_Integer, 0, index_id_reg);
 		sqlVdbeAddOp3(v, OP_MakeRecord, space_id_reg, 2,
 				  idx_rec_reg);
@@ -2612,6 +2724,33 @@ sql_create_index(struct Parse *parse) {
 }
 
 void
+vdbe_emit_index_drop(struct Parse *parse, struct Vdbe *v, struct space *space,
+		     int index_id, char *index_name)
+{
+	if (space->index[index_id]->def->opts.is_unique == true) {
+		char *name = sqlDbStrDup(v->db, index_name);
+		if (name == NULL)
+			return;
+		if (vdbe_emit_constr_drop(parse, v, space->def->id, name,
+					  P4_DYNAMIC) != 0)
+			return;
+	}
+	/*
+	 * Generate code to remove entry from _index space
+	 * But firstly, delete statistics since schema
+	 * changes after DDL.
+	 */
+	int record_reg = ++parse->nMem;
+	int space_id_reg = ++parse->nMem;
+	int index_id_reg = ++parse->nMem;
+	sqlVdbeAddOp2(v, OP_Integer, space->def->id, space_id_reg);
+	sqlVdbeAddOp2(v, OP_Integer, index_id, index_id_reg);
+	sqlVdbeAddOp3(v, OP_MakeRecord, space_id_reg, 2, record_reg);
+	sqlVdbeAddOp2(v, OP_SDelete, BOX_INDEX_ID, record_reg);
+	sqlVdbeChangeP5(v, OPFLAG_NCHANGE);
+}
+
+void
 sql_drop_index(struct Parse *parse_context)
 {
 	struct drop_entity_def *drop_def = &parse_context->drop_index_def.base;
@@ -2654,20 +2793,7 @@ sql_drop_index(struct Parse *parse_context)
 		}
 		goto exit_drop_index;
 	}
-
-	/*
-	 * Generate code to remove entry from _index space
-	 * But firstly, delete statistics since schema
-	 * changes after DDL.
-	 */
-	int record_reg = ++parse_context->nMem;
-	int space_id_reg = ++parse_context->nMem;
-	int index_id_reg = ++parse_context->nMem;
-	sqlVdbeAddOp2(v, OP_Integer, space->def->id, space_id_reg);
-	sqlVdbeAddOp2(v, OP_Integer, index_id, index_id_reg);
-	sqlVdbeAddOp3(v, OP_MakeRecord, space_id_reg, 2, record_reg);
-	sqlVdbeAddOp2(v, OP_SDelete, BOX_INDEX_ID, record_reg);
-	sqlVdbeChangeP5(v, OPFLAG_NCHANGE);
+	vdbe_emit_index_drop(parse_context, v, space, index_id, (char *) index_name);
  exit_drop_index:
 	sqlSrcListDelete(db, table_list);
 	sqlDbFree(db, (void *) index_name);
