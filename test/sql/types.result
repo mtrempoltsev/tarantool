@@ -637,28 +637,18 @@ box.execute("SELECT group_concat(b) FROM t;")
 --
 box.execute("SELECT lower(b) FROM t;")
 ---
-- metadata:
-  - name: lower(b)
-    type: string
-  rows:
-  - ['true']
-  - ['false']
-  - [null]
+- null
+- 'Inconsistent types: expected TEXT got BOOLEAN'
 ...
 box.execute("SELECT upper(b) FROM t;")
 ---
-- metadata:
-  - name: upper(b)
-    type: string
-  rows:
-  - ['TRUE']
-  - ['FALSE']
-  - [null]
+- null
+- 'Inconsistent types: expected TEXT got BOOLEAN'
 ...
 box.execute("SELECT abs(b) FROM t;")
 ---
 - null
-- 'Inconsistent types: expected number got BOOLEAN'
+- 'Inconsistent types: expected NUMBER got BOOLEAN'
 ...
 box.execute("SELECT typeof(b) FROM t;")
 ---
@@ -1512,19 +1502,13 @@ box.execute("DELETE FROM t WHERE i < 18446744073709551613;")
 ...
 box.execute("SELECT lower(i) FROM t;")
 ---
-- metadata:
-  - name: lower(i)
-    type: string
-  rows:
-  - ['18446744073709551613']
+- null
+- 'Inconsistent types: expected TEXT got UNSIGNED'
 ...
 box.execute("SELECT upper(i) FROM t;")
 ---
-- metadata:
-  - name: upper(i)
-    type: string
-  rows:
-  - ['18446744073709551613']
+- null
+- 'Inconsistent types: expected TEXT got UNSIGNED'
 ...
 box.execute("SELECT abs(i) FROM t;")
 ---
@@ -2005,7 +1989,7 @@ box.execute("SELECT upper(v) FROM t;")
 box.execute("SELECT abs(v) FROM t;")
 ---
 - null
-- 'Inconsistent types: expected number got VARBINARY'
+- 'Inconsistent types: expected NUMBER got VARBINARY'
 ...
 box.execute("SELECT typeof(v) FROM t;")
 ---

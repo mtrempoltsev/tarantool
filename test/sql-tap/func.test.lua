@@ -1,6 +1,6 @@
 #!/usr/bin/env tarantool
 test = require("sqltester")
-test:plan(14606)
+test:plan(14608)
 
 --!./tcltestrunner.lua
 -- 2001 September 15
@@ -95,7 +95,7 @@ test:do_execsql_test(
 test:do_execsql_test(
     "func-1.4",
     [[
-        SELECT coalesce(length(a),-1) FROM t2
+        SELECT coalesce(length(CAST(a AS TEXT)),-1) FROM t2
     ]], {
         -- <func-1.4>
         1, -1, 3, -1, 5
@@ -412,13 +412,13 @@ test:do_execsql_test(
         -- </func-4.4.1>
     })
 
-test:do_execsql_test(
+test:do_catchsql_test(
     "func-4.4.2",
     [[
         SELECT abs(t1) FROM tbl1
     ]], {
         -- <func-4.4.2>
-        0.0, 0.0, 0.0, 0.0, 0.0
+        1, "Inconsistent types: expected NUMBER got TEXT"
         -- </func-4.4.2>
     })
 
@@ -760,17 +760,25 @@ test:do_execsql_test(
         -- </func-5.2>
     })
 
-test:do_execsql_test(
+test:do_catchsql_test(
     "func-5.3",
     [[
         SELECT upper(a), lower(a) FROM t2
     ]], {
         -- <func-5.3>
-        "1","1","","","345","345","","","67890","67890"
+        1, "Inconsistent types: expected TEXT got UNSIGNED"
         -- </func-5.3>
     })
 
-
+test:do_catchsql_test(
+    "func-5.4",
+    [[
+        SELECT lower(a) FROM t2
+    ]], {
+        -- <func-5.4>
+        1, "Inconsistent types: expected TEXT got UNSIGNED"
+        -- </func-5.4>
+    })
 
 test:do_catchsql_test(
     "func-5.5",
@@ -797,7 +805,7 @@ test:do_execsql_test(
 test:do_execsql_test(
     "func-6.2",
     [[
-        SELECT coalesce(upper(a),'nil') FROM t2
+        SELECT coalesce(upper(CAST(a AS TEXT)),'nil') FROM t2
     ]], {
         -- <func-6.2>
         "1","nil","345","nil","67890"
@@ -985,12 +993,21 @@ test:do_execsql_test(
 test:do_execsql_test(
     "func-9.5",
     [[
-        SELECT length(randomblob(32)), length(randomblob(-5)),
-               length(randomblob(2000))
+        SELECT length(randomblob(32)), length(randomblob(2000))
     ]], {
         -- <func-9.5>
-        32, "", 2000
+        32, 2000
         -- </func-9.5>
+    })
+
+test:do_catchsql_test(
+    "func-9.6",
+    [[
+        SELECT randomblob(-5);
+    ]], {
+        -- <func-9.6>
+        1, "Inconsistent types: expected UNSIGNED got INTEGER"
+        -- </func-9.6>
     })
 
 -- The "hex()" function was added in order to be able to render blobs

@@ -434,31 +434,27 @@ typeofFunc(sql_context * context, int NotUsed, sql_value ** argv)
 static void
 lengthFunc(sql_context * context, int argc, sql_value ** argv)
 {
-	int len;
-
 	assert(argc == 1);
 	UNUSED_PARAMETER(argc);
-	switch (sql_value_type(argv[0])) {
-	case MP_BIN:
-	case MP_INT:
-	case MP_UINT:
-	case MP_DOUBLE:{
-			sql_result_uint(context, sql_value_bytes(argv[0]));
-			break;
-		}
-	case MP_STR:{
-			const unsigned char *z = sql_value_text(argv[0]);
-			if (z == 0)
-				return;
-			len = sql_utf8_char_count(z, sql_value_bytes(argv[0]));
-			sql_result_uint(context, len);
-			break;
-		}
-	default:{
-			sql_result_null(context);
-			break;
-		}
+	enum mp_type arg_type = sql_value_type(argv[0]);
+	if (arg_type != MP_STR && arg_type != MP_BIN && arg_type != MP_NIL) {
+		diag_set(ClientError, ER_INCONSISTENT_TYPES,
+			 "TEXT or VARBINARY", mem_type_to_str(argv[0]));
+		context->is_aborted = true;
+		return;
 	}
+	if (arg_type == MP_NIL) {
+		sql_result_null(context);
+		return;
+	}
+	int len = sql_value_bytes(argv[0]);
+	if (arg_type == MP_STR) {
+		const unsigned char *z = sql_value_text(argv[0]);
+		if (z == NULL)
+			return;
+		len = sql_utf8_char_count(z, len);
+	}
+	sql_result_uint(context, len);
 }
 
 /*
@@ -472,41 +468,30 @@ absFunc(sql_context * context, int argc, sql_value ** argv)
 {
 	assert(argc == 1);
 	UNUSED_PARAMETER(argc);
+	int64_t value;
+	double rVal;
 	switch (sql_value_type(argv[0])) {
-	case MP_UINT: {
+	case MP_UINT:
 		sql_result_uint(context, sql_value_uint64(argv[0]));
 		break;
-	}
-	case MP_INT: {
-		int64_t value = sql_value_int64(argv[0]);
+	case MP_INT:
+		value = sql_value_int64(argv[0]);
 		assert(value < 0);
 		sql_result_uint(context, -value);
 		break;
-	}
-	case MP_NIL:{
-			/* IMP: R-37434-19929 Abs(X) returns NULL if X is NULL. */
-			sql_result_null(context);
-			break;
-		}
-	case MP_BOOL:
-	case MP_BIN: {
-		diag_set(ClientError, ER_INCONSISTENT_TYPES, "number",
+	case MP_DOUBLE:
+		rVal = sql_value_double(argv[0]);
+		if (rVal < 0)
+			rVal = -rVal;
+		sql_result_double(context, rVal);
+		break;
+	case MP_NIL:
+		sql_result_null(context);
+		break;
+	default:
+		diag_set(ClientError, ER_INCONSISTENT_TYPES, "NUMBER",
 			 mem_type_to_str(argv[0]));
 		context->is_aborted = true;
-		return;
-	}
-	default:{
-			/* Because sql_value_double() returns 0.0 if the argument is not
-			 * something that can be converted into a number, we have:
-			 * IMP: R-01992-00519 Abs(X) returns 0.0 if X is a string or blob
-			 * that cannot be converted to a numeric value.
-			 */
-			double rVal = sql_value_double(argv[0]);
-			if (rVal < 0)
-				rVal = -rVal;
-			sql_result_double(context, rVal);
-			break;
-		}
 	}
 }
 
@@ -861,63 +846,63 @@ contextMalloc(sql_context * context, i64 nByte)
 /*
  * Implementation of the upper() and lower() SQL functions.
  */
-
-#define ICU_CASE_CONVERT(case_type)                                            \
-static void                                                                    \
-case_type##ICUFunc(sql_context *context, int argc, sql_value **argv)   \
-{                                                                              \
-	char *z1;                                                              \
-	const char *z2;                                                        \
-	int n;                                                                 \
-	UNUSED_PARAMETER(argc);                                                \
-	int arg_type = sql_value_type(argv[0]);                                \
-	if (arg_type == MP_BIN) {                                              \
-		diag_set(ClientError, ER_INCONSISTENT_TYPES, "TEXT",           \
-			 "VARBINARY");                                         \
-		context->is_aborted = true;                                    \
-		return;                                                        \
-	}                                                                      \
-	z2 = (char *)sql_value_text(argv[0]);                              \
-	n = sql_value_bytes(argv[0]);                                      \
-	/*                                                                     \
-	 * Verify that the call to _bytes()                                    \
-	 * does not invalidate the _text() pointer.                            \
-	 */                                                                    \
-	assert(z2 == (char *)sql_value_text(argv[0]));                     \
-	if (!z2)                                                               \
-		return;                                                        \
-	z1 = contextMalloc(context, ((i64) n) + 1);                            \
-	if (z1 == NULL) {                                                      \
-		context->is_aborted = true;                                    \
-		return;                                                        \
-	}                                                                      \
-	UErrorCode status = U_ZERO_ERROR;                                      \
-	struct coll *coll = sqlGetFuncCollSeq(context);                    \
-	const char *locale = NULL;                                             \
-	if (coll != NULL && coll->type == COLL_TYPE_ICU) {                     \
-		locale = ucol_getLocaleByType(coll->collator,                  \
-					      ULOC_VALID_LOCALE, &status);     \
-	}                                                                      \
-	UCaseMap *case_map = ucasemap_open(locale, 0, &status);                \
-	assert(case_map != NULL);                                              \
-	int len = ucasemap_utf8To##case_type(case_map, z1, n, z2, n, &status); \
-	if (len > n) {                                                         \
-		status = U_ZERO_ERROR;                                         \
-		sql_free(z1);                                              \
-		z1 = contextMalloc(context, ((i64) len) + 1);                  \
-		if (z1 == NULL) {                                              \
-			context->is_aborted = true;                            \
-			return;                                                \
-		}                                                              \
-		ucasemap_utf8To##case_type(case_map, z1, len, z2, n, &status); \
-	}                                                                      \
-	ucasemap_close(case_map);                                              \
-	sql_result_text(context, z1, len, sql_free);                   \
-}                                                                              \
-
-ICU_CASE_CONVERT(Lower);
-ICU_CASE_CONVERT(Upper);
-
+static void
+sql_upper_lower_icu_func(sql_context *context, int argc, sql_value **argv)
+{
+	assert(argc = 1);
+	UNUSED_PARAMETER(argc);
+	enum mp_type arg_type = sql_value_type(argv[0]);
+	if (arg_type != MP_STR && arg_type != MP_NIL) {
+		diag_set(ClientError, ER_INCONSISTENT_TYPES, "TEXT",
+			 mem_type_to_str(argv[0]));
+		context->is_aborted = true;
+		return;
+	}
+	if (arg_type == MP_NIL) {
+		sql_result_null(context);
+		return;
+	}
+	bool is_upper = sql_func_flag_is_set(context->func, SQL_FUNC_UPPER);
+	const char *z2 = (char *)sql_value_text(argv[0]);
+	assert(z2 != NULL);
+	int n = sql_value_bytes(argv[0]);
+	/*
+	 * Verify that the call to _bytes()
+	 * does not invalidate the _text() pointer.
+	 */
+	assert(z2 == (char *)sql_value_text(argv[0]));
+	char *z1 = contextMalloc(context, n + 1);
+	if (z1 == NULL) {
+		context->is_aborted = true;
+		return;
+	}
+	UErrorCode status = U_ZERO_ERROR;
+	struct coll *coll = sqlGetFuncCollSeq(context);
+	const char *locale = NULL;
+	if (coll != NULL && coll->type == COLL_TYPE_ICU) {
+		locale = ucol_getLocaleByType(coll->collator,
+					      ULOC_VALID_LOCALE, &status);
+	}
+	UCaseMap *case_map = ucasemap_open(locale, 0, &status);
+	assert(case_map != NULL);
+	int len = is_upper ?
+		  ucasemap_utf8ToUpper(case_map, z1, n, z2, n, &status) :
+		  ucasemap_utf8ToLower(case_map, z1, n, z2, n, &status);
+	if (len > n) {
+		status = U_ZERO_ERROR;
+		sql_free(z1);
+		z1 = contextMalloc(context, len + 1);
+		if (z1 == NULL) {
+			context->is_aborted = true;
+			return;
+		}
+		len = is_upper ?
+		      ucasemap_utf8ToUpper(case_map, z1, len, z2, n, &status) :
+		      ucasemap_utf8ToLower(case_map, z1, len, z2, n, &status);
+	}
+	ucasemap_close(case_map);
+	sql_result_text(context, z1, len, sql_free);
+}
 
 /*
  * Some functions like COALESCE() and IFNULL() and UNLIKELY() are implemented
@@ -952,9 +937,10 @@ randomBlob(sql_context * context, int argc, sql_value ** argv)
 	unsigned char *p;
 	assert(argc == 1);
 	UNUSED_PARAMETER(argc);
-	if (sql_value_type(argv[0]) == MP_BIN) {
-		diag_set(ClientError, ER_SQL_TYPE_MISMATCH,
-			 sql_value_text(argv[0]), "numeric");
+	enum mp_type arg_type = sql_value_type(argv[0]);
+	if (arg_type != MP_UINT && arg_type != MP_NIL) {
+		diag_set(ClientError, ER_INCONSISTENT_TYPES,
+			 "UNSIGNED", mem_type_to_str(argv[0]));
 		context->is_aborted = true;
 		return;
 	}
@@ -1435,12 +1421,16 @@ charFunc(sql_context * context, int argc, sql_value ** argv)
 		return;
 	}
 	for (i = 0; i < argc; i++) {
-		uint64_t x;
+		enum mp_type arg_type = sql_value_type(argv[i]);
+		if (arg_type != MP_UINT && arg_type != MP_NIL) {
+			sql_free(z);
+			diag_set(ClientError, ER_INCONSISTENT_TYPES, "UNSIGNED",
+				 mem_type_to_str(argv[i]));
+			context->is_aborted = true;
+			return;
+		}
+		uint64_t x = sql_value_uint64(argv[i]);;
 		unsigned c;
-		if (sql_value_type(argv[i]) == MP_INT)
-			x = 0xfffd;
-		else
-			x = sql_value_uint64(argv[i]);
 		if (x > 0x10ffff)
 			x = 0xfffd;
 		c = (unsigned)(x & 0x1fffff);
@@ -1470,17 +1460,27 @@ charFunc(sql_context * context, int argc, sql_value ** argv)
 static void
 hexFunc(sql_context * context, int argc, sql_value ** argv)
 {
-	int i, n;
-	const unsigned char *pBlob;
-	char *zHex, *z;
+	enum mp_type arg_type = sql_value_type(argv[0]);
+
 	assert(argc == 1);
 	UNUSED_PARAMETER(argc);
-	pBlob = sql_value_blob(argv[0]);
-	n = sql_value_bytes(argv[0]);
+	if (arg_type != MP_STR && arg_type != MP_BIN && arg_type != MP_NIL) {
+		diag_set(ClientError, ER_INCONSISTENT_TYPES,
+			 "TEXT or VARBINARY", mem_type_to_str(argv[0]));
+		context->is_aborted = true;
+		return;
+	}
+	if (arg_type == MP_NIL) {
+		sql_result_null(context);
+		return;
+	}
+	const unsigned char *pBlob = sql_value_blob(argv[0]);
+	int n = sql_value_bytes(argv[0]);
 	assert(pBlob == sql_value_blob(argv[0]));	/* No encoding change */
+	char *zHex, *z;
 	z = zHex = contextMalloc(context, ((i64) n) * 2 + 1);
 	if (zHex) {
-		for (i = 0; i < n; i++, pBlob++) {
+		for (int i = 0; i < n; i++, pBlob++) {
 			unsigned char c = *pBlob;
 			*(z++) = hexdigits[(c >> 4) & 0xf];
 			*(z++) = hexdigits[c & 0xf];
@@ -1840,9 +1840,10 @@ soundexFunc(sql_context * context, int argc, sql_value ** argv)
 		1, 2, 6, 2, 3, 0, 1, 0, 2, 0, 2, 0, 0, 0, 0, 0,
 	};
 	assert(argc == 1);
-	if (sql_value_type(argv[0]) == MP_BIN) {
-		diag_set(ClientError, ER_SQL_TYPE_MISMATCH,
-			 sql_value_text(argv[0]), "TEXT");
+	enum mp_type arg_type = sql_value_type(argv[0]);
+	if (arg_type != MP_STR && arg_type != MP_NIL) {
+		diag_set(ClientError, ER_INCONSISTENT_TYPES,
+			 "TEXT", mem_type_to_str(argv[0]));
 		context->is_aborted = true;
 		return;
 	}
@@ -2520,7 +2521,7 @@ static struct {
 	 .aggregate = FUNC_AGGREGATE_NONE,
 	 .is_deterministic = true,
 	 .flags = SQL_FUNC_DERIVEDCOLL | SQL_FUNC_NEEDCOLL,
-	 .call = LowerICUFunc,
+	 .call = sql_upper_lower_icu_func,
 	 .finalize = NULL,
 	 .export_to_sql = true,
 	}, {
@@ -2789,8 +2790,8 @@ static struct {
 	 .returns = FIELD_TYPE_STRING,
 	 .aggregate = FUNC_AGGREGATE_NONE,
 	 .is_deterministic = true,
-	 .flags = SQL_FUNC_DERIVEDCOLL | SQL_FUNC_NEEDCOLL,
-	 .call = UpperICUFunc,
+	 .flags = SQL_FUNC_DERIVEDCOLL | SQL_FUNC_NEEDCOLL | SQL_FUNC_UPPER,
+	 .call = sql_upper_lower_icu_func,
 	 .finalize = NULL,
 	 .export_to_sql = true,
 	}, {

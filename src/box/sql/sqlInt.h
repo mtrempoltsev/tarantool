@@ -1237,6 +1237,8 @@ struct type_def {
  * argument.
  */
 #define SQL_FUNC_DERIVEDCOLL 0x4000
+/** Built-in upper() function. */
+#define SQL_FUNC_UPPER    0x8000
 
 /*
  * Trim side mask components. TRIM_LEADING means to trim left side
