@@ -2857,6 +2857,31 @@ check_err(err)
 ---
 - true
 ...
+-- gh-4138 Check the usage error in case of wrong args types.
+socket.connect('127.0.0.1', {3301})
+---
+- error: 'builtin/socket.lua: Usage: luasocket.connect(host, port)'
+...
+socket.bind('127.0.0.1', {3301})
+---
+- error: 'builtin/socket.lua: Usage: luasocket.bind(host, port [, backlog])'
+...
+socket.connect(127.0.0.1, 3301)
+---
+- error: '[string "socket.connect(127.0.0.1, 3301) "]:1: malformed number near ''127.0.0.1'''
+...
+socket.bind(127.0.0.1, 3301)
+---
+- error: '[string "socket.bind(127.0.0.1, 3301) "]:1: malformed number near ''127.0.0.1'''
+...
+socket.connect({'127.0.0.1'}, 3301)
+---
+- error: 'builtin/socket.lua: Usage: luasocket.connect(host, port)'
+...
+socket.bind({'127.0.0.1'}, 3301)
+---
+- error: 'builtin/socket.lua: Usage: luasocket.bind(host, port [, backlog])'
+...
 test_run:cmd("clear filter")
 ---
 - true

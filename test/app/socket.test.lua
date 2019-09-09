@@ -985,6 +985,14 @@ check_err(err)
 s, err = socket.connect('non_exists_hostname', 3301)
 check_err(err)
 
+-- gh-4138 Check the usage error in case of wrong args types.
+socket.connect('127.0.0.1', {3301})
+socket.bind('127.0.0.1', {3301})
+socket.connect(127.0.0.1, 3301)
+socket.bind(127.0.0.1, 3301)
+socket.connect({'127.0.0.1'}, 3301)
+socket.bind({'127.0.0.1'}, 3301)
+
 test_run:cmd("clear filter")
 
 -- case: sicket receive inconsistent behavior

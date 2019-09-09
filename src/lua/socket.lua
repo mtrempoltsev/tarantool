@@ -1554,7 +1554,8 @@ local function lsocket_tcp()
 end
 
 local function lsocket_connect(host, port)
-    if host == nil or port == nil then
+    if type(host) ~= 'string' or (type(port) ~= 'string' and
+       type(port) ~= 'number') then
         error("Usage: luasocket.connect(host, port)")
     end
     local s, err = tcp_connect(host, port)
@@ -1569,7 +1570,8 @@ local function lsocket_connect(host, port)
 end
 
 local function lsocket_bind(host, port, backlog)
-    if host == nil or port == nil then
+    if type(host) ~= 'string' or (type(port) ~= 'string' and
+        type(port) ~= 'number') then
         error("Usage: luasocket.bind(host, port [, backlog])")
     end
     local function prepare(s) return backlog end
