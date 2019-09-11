@@ -42,6 +42,10 @@
 #include "memory.h"
 #include "trigger.h"
 
+#if ENABLE_FIBER_TOP
+#include <x86intrin.h> /* __rdtscp() */
+#endif /* ENABLE_FIBER_TOP */
+
 #include "third_party/valgrind/memcheck.h"
 
 static int (*fiber_invoke)(fiber_func f, va_list ap);
@@ -81,6 +85,38 @@ static int (*fiber_invoke)(fiber_func f, va_list ap);
 		say_syserror("mprotect");				\
 	err;								\
 })
+
+#if ENABLE_FIBER_TOP
+static bool fiber_top_enabled = false;
+
+/**
+ * An action performed each time a context switch happens.
+ * Used to count each fiber's processing time.
+ */
+static inline void
+clock_set_on_csw(struct fiber *caller)
+{
+	caller->csw++;
+	if (!fiber_top_enabled)
+		return;
+
+	uint64_t clock;
+	uint32_t cpu_id;
+	clock = __rdtscp(&cpu_id);
+
+	if (cpu_id == cord()->cpu_id_last) {
+		caller->clock_delta += clock - cord()->clock_last;
+		cord()->clock_delta += clock - cord()->clock_last;
+	} else {
+		cord()->cpu_id_last = cpu_id;
+		cord()->cpu_miss_count++;
+	}
+	cord()->clock_last = clock;
+}
+
+#else
+#define clock_set_on_csw(caller) ;
+#endif /* ENABLE_FIBER_TOP */
 
 /*
  * Defines a handler to be executed on exit from cord's thread func,
@@ -227,7 +263,6 @@ fiber_call_impl(struct fiber *callee)
 	cord->fiber = callee;
 
 	callee->flags &= ~FIBER_IS_READY;
-	callee->csw++;
 	ASAN_START_SWITCH_FIBER(asan_state, 1,
 				callee->stack,
 				callee->stack_size);
@@ -246,6 +281,7 @@ fiber_call(struct fiber *callee)
 	/** By convention, these triggers must not throw. */
 	if (! rlist_empty(&caller->on_yield))
 		trigger_run(&caller->on_yield, NULL);
+	clock_set_on_csw(caller);
 	callee->caller = caller;
 	callee->flags |= FIBER_IS_READY;
 	caller->flags |= FIBER_IS_READY;
@@ -474,11 +510,11 @@ fiber_yield(void)
 	/** By convention, these triggers must not throw. */
 	if (! rlist_empty(&caller->on_yield))
 		trigger_run(&caller->on_yield, NULL);
+	clock_set_on_csw(caller);
 
 	assert(callee->flags & FIBER_IS_READY || callee == &cord->sched);
 	assert(! (callee->flags & FIBER_IS_DEAD));
 	cord->fiber = callee;
-	callee->csw++;
 	callee->flags &= ~FIBER_IS_READY;
 	ASAN_START_SWITCH_FIBER(asan_state,
 				(caller->flags & FIBER_IS_DEAD) == 0,
@@ -584,6 +620,7 @@ fiber_schedule_list(struct rlist *list)
 	}
 	last->caller = fiber();
 	assert(fiber() == &cord()->sched);
+	clock_set_on_csw(fiber());
 	fiber_call_impl(first);
 }
 
@@ -980,6 +1017,10 @@ fiber_new_ex(const char *name, const struct fiber_attr *fiber_attr,
 	}
 
 	fiber->f = f;
+#if ENABLE_FIBER_TOP
+	fiber->clock_acc = 0;
+	fiber->clock_delta = 0;
+#endif /* ENABLE_FIBER_TOP */
 	/* Excluding reserved range */
 	if (++cord->max_fid < FIBER_ID_MAX_RESERVED)
 		cord->max_fid = FIBER_ID_MAX_RESERVED + 1;
@@ -1044,6 +1085,105 @@ fiber_destroy_all(struct cord *cord)
 						      struct fiber, link));
 }
 
+#if ENABLE_FIBER_TOP
+static void
+loop_on_iteration_start(ev_loop *loop, ev_check *watcher, int revents)
+{
+	(void) loop;
+	(void) watcher;
+	(void) revents;
+
+	cord()->clock_last = __rdtscp(&cord()->cpu_id_last);
+	cord()->cpu_miss_count = 0;
+}
+
+
+/**
+ * Calculate the exponential moving average for the clock deltas
+ * per loop iteration. The coeffitient is 1/16.
+ */
+static inline uint64_t
+clock_diff_accumulate(uint64_t acc, uint64_t delta)
+{
+	if (acc > 0) {
+		return delta / 16 + 15 * acc / 16;
+	} else {
+		return delta;
+	}
+}
+
+static void
+loop_on_iteration_end(ev_loop *loop, ev_prepare *watcher, int revents)
+{
+	(void) loop;
+	(void) watcher;
+	(void) revents;
+	struct fiber *fiber;
+	assert(fiber() == &cord()->sched);
+
+	/*
+	 * Record the scheduler's latest clock change, even though
+	 * it's not a context switch, but an event loop iteration
+	 * end.
+	 */
+	clock_set_on_csw(&cord()->sched);
+
+	cord()->cpu_miss_count_last = cord()->cpu_miss_count;
+	cord()->cpu_miss_count = 0;
+
+	cord()->clock_acc = clock_diff_accumulate(cord()->clock_acc, cord()->clock_delta);
+	cord()->clock_delta_last = cord()->clock_delta;
+	cord()->clock_delta = 0;
+
+	cord()->sched.clock_acc = clock_diff_accumulate(cord()->sched.clock_acc, cord()->sched.clock_delta);
+	cord()->sched.clock_delta_last = cord()->sched.clock_delta;
+	cord()->sched.clock_delta = 0;
+
+	rlist_foreach_entry(fiber, &cord()->alive, link) {
+		fiber->clock_acc = clock_diff_accumulate(fiber->clock_acc, fiber->clock_delta);
+		fiber->clock_delta_last = fiber->clock_delta;
+		fiber->clock_delta = 0;
+	}
+}
+
+static inline void
+fiber_top_init()
+{
+	ev_prepare_init(&cord()->prepare_event, loop_on_iteration_end);
+	ev_check_init(&cord()->check_event, loop_on_iteration_start);
+}
+
+bool
+fiber_top_is_enabled()
+{
+	return fiber_top_enabled;
+}
+
+inline void
+fiber_top_enable()
+{
+	if (!fiber_top_enabled) {
+		ev_prepare_start(cord()->loop, &cord()->prepare_event);
+		ev_check_start(cord()->loop, &cord()->check_event);
+		fiber_top_enabled = true;
+
+		cord()->clock_acc = 0;
+		cord()->cpu_miss_count_last = 0;
+		cord()->clock_delta_last = 0;
+	}
+}
+
+inline void
+fiber_top_disable()
+{
+	if (fiber_top_enabled) {
+		ev_prepare_stop(cord()->loop, &cord()->prepare_event);
+		ev_check_stop(cord()->loop, &cord()->check_event);
+		fiber_top_enabled = false;
+	}
+}
+#endif /* ENABLE_FIBER_TOP */
+
 void
 cord_create(struct cord *cord, const char *name)
 {
@@ -1077,6 +1217,13 @@ cord_create(struct cord *cord, const char *name)
 	ev_async_init(&cord->wakeup_event, fiber_schedule_wakeup);
 
 	ev_idle_init(&cord->idle_event, fiber_schedule_idle);
+
+#if ENABLE_FIBER_TOP
+	/* fiber.top() currently works only for the main thread. */
+	if (cord_is_main()) {
+		fiber_top_init();
+	}
+#endif /* ENABLE_FIBER_TOP */
 	cord_set_name(name);
 
 #if ENABLE_ASAN

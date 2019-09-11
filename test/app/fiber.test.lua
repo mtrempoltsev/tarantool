@@ -629,6 +629,47 @@ while f:status() ~= 'dead' do fiber.sleep(0.01) end
 --
 fiber.join(fiber.self())
 
+sum = 0
+
+-- gh-2694 fiber.top()
+fiber.top_enable()
+
+a = fiber.top()
+type(a)
+-- scheduler is present in fiber.top()
+-- and is indexed by name
+a["1/sched"] ~= nil
+type(a["cpu misses"]) == 'number'
+sum_inst = 0
+sum_avg = 0
+
+-- update table to make sure
+-- a full event loop iteration
+-- has ended
+a = fiber.top()
+for k, v in pairs(a) do\
+    if type(v) == 'table' then\
+        sum_inst = sum_inst + v["instant"]\
+        sum_avg = sum_avg + v["average"]\
+    end\
+end
+
+sum_inst
+-- not exact due to accumulated integer division errors
+sum_avg > 99 and sum_avg < 101 or sum_avg
+tbl = nil
+f = fiber.new(function()\
+    for i = 1,1000 do end\
+    fiber.yield()\
+    tbl = fiber.top()[fiber.self().id()..'/'..fiber.self().name()]\
+end)
+while f:status() ~= 'dead' do fiber.sleep(0.01) end
+tbl["average"] > 0
+tbl["instant"] > 0
+
+fiber.top_disable()
+fiber.top()
+
 -- cleanup
 test_run:cmd("clear filter")
 
