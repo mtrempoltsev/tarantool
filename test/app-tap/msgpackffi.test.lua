@@ -4,6 +4,8 @@ package.path = "lua/?.lua;"..package.path
 
 local tap = require('tap')
 local common = require('serializer_test')
+local buffer = require('buffer')
+local ffi = require('ffi')
 
 local function is_map(s)
     local b = string.byte(string.sub(s, 1, 1))
@@ -33,6 +35,21 @@ local function test_offsets(test, s)
     test:is(offset, 9, "offset of end")
 
     test:ok(not pcall(s.decode, dump, offset), "invalid offset")
+end
+
+local function test_types(test, s)
+    test:plan(1)
+    -- gh-3926: decode result cannot be assigned to buffer.rpos
+    local encoded_data = s.encode(0)
+    local len = encoded_data:len()
+    local buf = buffer.ibuf()
+    buf:reserve(len)
+    local p = buf:alloc(len)
+    ffi.copy(p, encoded_data, len)
+    local _, new_buf = s.decode(p)
+    test:iscdata(new_buf, 'char *', 'cdata type')
+    buf.rpos = new_buf
+    buf:recycle()
 end
 
 local function test_other(test, s)
@@ -117,7 +134,7 @@ end
 
 tap.test("msgpackffi", function(test)
     local serializer = require('msgpackffi')
-    test:plan(10)
+    test:plan(11)
     test:test("unsigned", common.test_unsigned, serializer)
     test:test("signed", common.test_signed, serializer)
     test:test("double", common.test_double, serializer)
@@ -130,4 +147,5 @@ tap.test("msgpackffi", function(test)
     --test:test("ucdata", common.test_ucdata, serializer)
     test:test("offsets", test_offsets, serializer)
     test:test("other", test_other, serializer)
+    test:test("types", test_types, serializer)
 end)

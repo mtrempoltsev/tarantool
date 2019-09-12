@@ -10,6 +10,7 @@ local uint16_ptr_t = ffi.typeof('uint16_t *')
 local uint32_ptr_t = ffi.typeof('uint32_t *')
 local uint64_ptr_t = ffi.typeof('uint64_t *')
 local const_char_ptr_t = ffi.typeof('const char *')
+local char_ptr_t = ffi.typeof('char *')
 
 ffi.cdef([[
 char *
@@ -606,13 +607,14 @@ local function decode_unchecked(str, offset)
         bufp[0] = buf + offset - 1
         local r = decode_r(bufp)
         return r, bufp[0] - buf + 1
-    elseif ffi.istype(const_char_ptr_t, str) then
+    elseif ffi.istype(const_char_ptr_t, str) or
+        ffi.istype(char_ptr_t, str) then
         bufp[0] = str
         local r = decode_r(bufp)
-        return r, bufp[0]
+        return r, ffi.cast(char_ptr_t, bufp[0])
     else
         error("msgpackffi.decode_unchecked(str, offset) -> res, new_offset | "..
-              "msgpackffi.decode_unchecked(const char *buf) -> res, new_buf")
+              "msgpackffi.decode_unchecked([const] char *buf) -> res, new_buf")
     end
 end
 
