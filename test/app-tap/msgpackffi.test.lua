@@ -38,7 +38,7 @@ local function test_offsets(test, s)
 end
 
 local function test_types(test, s)
-    test:plan(1)
+    test:plan(2)
     -- gh-3926: decode result cannot be assigned to buffer.rpos
     local encoded_data = s.encode(0)
     local len = encoded_data:len()
@@ -46,8 +46,10 @@ local function test_types(test, s)
     buf:reserve(len)
     local p = buf:alloc(len)
     ffi.copy(p, encoded_data, len)
-    local _, new_buf = s.decode(p)
-    test:iscdata(new_buf, 'char *', 'cdata type')
+    local _, new_buf = s.decode(ffi.cast(p, 'const char *'))
+    test:iscdata(new_buf, 'const char *', 'cdata const char * type')
+    _, new_buf = s.decode(p)
+    test:iscdata(new_buf, 'char *', 'cdata char * type')
     buf.rpos = new_buf
     buf:recycle()
 end

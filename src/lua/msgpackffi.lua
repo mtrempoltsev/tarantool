@@ -608,10 +608,10 @@ local function decode_unchecked(str, offset)
         local r = decode_r(bufp)
         return r, bufp[0] - buf + 1
     elseif ffi.istype(const_char_ptr_t, str) or
-        ffi.istype(char_ptr_t, str) then
+           ffi.istype(char_ptr_t, str) then
         bufp[0] = str
         local r = decode_r(bufp)
-        return r, ffi.cast(char_ptr_t, bufp[0])
+        return r, ffi.cast(ffi.typeof(str), bufp[0])
     else
         error("msgpackffi.decode_unchecked(str, offset) -> res, new_offset | "..
               "msgpackffi.decode_unchecked([const] char *buf) -> res, new_buf")
