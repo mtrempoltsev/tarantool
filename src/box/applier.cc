@@ -611,7 +611,7 @@ applier_read_tx(struct applier *applier, struct stailq *rows)
 				    next)->row.is_commit);
 }
 
-static void
+static int
 applier_txn_rollback_cb(struct trigger *trigger, void *event)
 {
 	(void) trigger;
@@ -622,14 +622,16 @@ applier_txn_rollback_cb(struct trigger *trigger, void *event)
 	trigger_run(&replicaset.applier.on_rollback, event);
 	/* Rollback applier vclock to the committed one. */
 	vclock_copy(&replicaset.applier.vclock, &replicaset.vclock);
+	return 0;
 }
 
-static void
+static int
 applier_txn_commit_cb(struct trigger *trigger, void *event)
 {
 	(void) trigger;
 	/* Broadcast the commit event across all appliers. */
 	trigger_run(&replicaset.applier.on_commit, event);
+	return 0;
 }
 
 /**
@@ -745,18 +747,19 @@ fail:
 /*
  * A trigger to update an applier state after a replication commit.
  */
-static void
+static int
 applier_on_commit(struct trigger *trigger, void *event)
 {
 	(void) event;
 	struct applier *applier = (struct applier *)trigger->data;
 	fiber_cond_signal(&applier->writer_cond);
+	return 0;
 }
 
 /*
  * A trigger to update an applier state after a replication rollback.
  */
-static void
+static int
 applier_on_rollback(struct trigger *trigger, void *event)
 {
 	(void) event;
@@ -768,6 +771,7 @@ applier_on_rollback(struct trigger *trigger, void *event)
 	}
 	/* Stop the applier fiber. */
 	fiber_cancel(applier->reader);
+	return 0;
 }
 
 /**
@@ -1131,7 +1135,7 @@ struct applier_on_state {
 	struct fiber_cond wakeup;
 };
 
-static void
+static int
 applier_on_state_f(struct trigger *trigger, void *event)
 {
 	(void) event;
@@ -1143,12 +1147,13 @@ applier_on_state_f(struct trigger *trigger, void *event)
 	if (applier->state != APPLIER_OFF &&
 	    applier->state != APPLIER_STOPPED &&
 	    applier->state != on_state->desired_state)
-		return;
+		return 0;
 
 	/* Wake up waiter */
 	fiber_cond_signal(&on_state->wakeup);
 
 	applier_pause(applier);
+	return 0;
 }
 
 static inline void
