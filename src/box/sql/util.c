@@ -489,7 +489,7 @@ sql_atoi64(const char *z, int64_t *val, bool *is_neg, int length)
 }
 
 /*
- * If zNum represents an integer that will fit in 32-bits, then set
+ * If zNum represents an integer that will fit in 64-bits, then set
  * *pValue to that integer and return true.  Otherwise return false.
  *
  * This routine accepts both decimal and hexadecimal notation for integers.
@@ -499,29 +499,27 @@ sql_atoi64(const char *z, int64_t *val, bool *is_neg, int length)
  * input number to be zero-terminated.
  */
 int
-sqlGetInt32(const char *zNum, int *pValue)
+sqlGetInt64(const char *zNum, int64_t *pValue)
 {
 	sql_int64 v = 0;
-	int i, c;
-	int neg = 0;
+	int64_t i, c;
+	int64_t neg = 0;
 	if (zNum[0] == '-') {
 		neg = 1;
 		zNum++;
 	} else if (zNum[0] == '+') {
 		zNum++;
-	}
-	else if (zNum[0] == '0' && (zNum[1] == 'x' || zNum[1] == 'X')
-		 && sqlIsxdigit(zNum[2])
-	    ) {
-		u32 u = 0;
+	} else if ( zNum[0] == '0' && (zNum[1] == 'x' || zNum[1] == 'X')
+		 && sqlIsxdigit(zNum[2]) ) {
+		u64 u = 0;
 		zNum += 2;
 		while (zNum[0] == '0')
 			zNum++;
-		for (i = 0; sqlIsxdigit(zNum[i]) && i < 8; i++) {
+		for (i = 0; sqlIsxdigit(zNum[i]) && i < 16; i++) {
 			u = u * 16 + sqlHexToInt(zNum[i]);
 		}
-		if ((u & 0x80000000) == 0 && sqlIsxdigit(zNum[i]) == 0) {
-			memcpy(pValue, &u, 4);
+		if ((u & 0x8000000000000000) == 0 && sqlIsxdigit(zNum[i]) == 0) {
+			memcpy(pValue, &u, 8);
 			return 1;
 		} else {
 			return 0;
@@ -529,26 +527,45 @@ sqlGetInt32(const char *zNum, int *pValue)
 	}
 	while (zNum[0] == '0')
 		zNum++;
-	for (i = 0; i < 11 && (c = zNum[i] - '0') >= 0 && c <= 9; i++) {
+	for (i = 0; i < 19 && (c = zNum[i] - '0') >= 0 && c <= 9; i++) {
 		v = v * 10 + c;
 	}
 
-	/* The longest decimal representation of a 32 bit integer is 10 digits:
-	 *
-	 *             1234567890
-	 *     2^31 -> 2147483648
-	 */
-	testcase(i == 10);
-	if (i > 10) {
+	/* True would mean we overloaded the number */
+	if ( (neg && v > 0) || (!neg && v < 0) )
 		return 0;
-	}
-	testcase(v - neg == 2147483647);
-	if (v - neg > 2147483647) {
+	/* The longest decimal representations of a 64 bit integer 
+	fits 19 digits */
+	testcase(i == 19);
+	if (i > 18)
 		return 0;
-	}
-	if (neg) {
+	testcase(v - neg == 9223372036854775807);
+	if (v - neg > 9223372036854775807)
+		return 0;
+	if (neg)
 		v = -v;
-	}
+
+	*pValue = (int)v;
+	return 1;
+}
+
+/*
+ * 
+ * If zNum represents an integer that will fit in 32-bits, then set
+ * *pValue to that integer and return true.  Otherwise return false.
+ *
+ * Works similarly to sqlGetInt64.
+ */
+int
+sqlGetInt32(const char *zNum, int *pValue)
+{
+	int64_t v = 0;
+	sqlGetInt64(zNum, &v);
+	int64_t neg = (v < 0 ? 1 : 0);
+	testcase(v - neg == 2147483647);
+	if (v - neg > 2147483647)
+		return 0;
+
 	*pValue = (int)v;
 	return 1;
 }

@@ -1032,6 +1032,29 @@ tarantool_error:
     sqlDbFree(pParse->db, p);
     pParse->is_aborted = true;
   }
+
+  /* Construct a new numeric Expr object from a single identifier.  
+  ** Use the new Expr to populate pOut.  Set the span of pOut 
+  ** to be the identifier that created the expression.
+  */
+  static void spanNumericExpr(ExprSpan *pOut, Parse *pParse, int op, Token t){
+    pOut->pExpr = sql_expr_new_dequoted(pParse->db, op, &t);
+    if (pOut->pExpr == NULL) {
+      pParse->is_aborted = true;
+      return;
+    }
+    switch (op) {
+      case TK_INTEGER:
+        pOut->pExpr->type = FIELD_TYPE_INTEGER;
+        break;
+      case TK_FLOAT:
+        pOut->pExpr->type = FIELD_TYPE_NUMBER;
+        break;
+    }
+    pOut->zStart = t.z;
+    pOut->zEnd = t.z + t.n;
+    if( pOut->pExpr ) pOut->pExpr->flags |= EP_Leaf;
+  }
 }
 
 expr(A) ::= term(A).
@@ -1055,23 +1078,14 @@ expr(A) ::= nm(X) DOT nm(Y). {
   spanSet(&A,&X,&Y); /*A-overwrites-X*/
   A.pExpr = sqlPExpr(pParse, TK_DOT, temp1, temp2);
 }
-term(A) ::= FLOAT|BLOB(X). {spanExpr(&A,pParse,@X,X);/*A-overwrites-X*/}
+term(A) ::= BLOB(X). {spanExpr(&A,pParse,@X,X);/*A-overwrites-X*/}
 term(A) ::= STRING(X).     {spanExpr(&A,pParse,@X,X);/*A-overwrites-X*/}
 term(A) ::= FALSE(X) . {spanExpr(&A,pParse,@X,X);/*A-overwrites-X*/}
 term(A) ::= TRUE(X) . {spanExpr(&A,pParse,@X,X);/*A-overwrites-X*/}
 term(A) ::= UNKNOWN(X) . {spanExpr(&A,pParse,@X,X);/*A-overwrites-X*/}
 
-term(A) ::= INTEGER(X). {
-  A.pExpr = sql_expr_new_dequoted(pParse->db, TK_INTEGER, &X);
-  if (A.pExpr == NULL) {
-    pParse->is_aborted = true;
-    return;
-  }
-  A.pExpr->type = FIELD_TYPE_INTEGER;
-  A.zStart = X.z;
-  A.zEnd = X.z + X.n;
-  if( A.pExpr ) A.pExpr->flags |= EP_Leaf;
-}
+term(A) ::= INTEGER(X)|FLOAT(X) . {spanNumericExpr(&A,pParse,@X,X);}
+
 expr(A) ::= VARIABLE(X).     {
   Token t = X;
   if (pParse->parse_only) {

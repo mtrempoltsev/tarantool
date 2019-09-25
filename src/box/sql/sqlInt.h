@@ -1528,6 +1528,8 @@ struct Expr {
 	union {
 		char *zToken;	/* Token value. Zero terminated and dequoted */
 		int iValue;	/* Non-negative integer value if EP_IntValue */
+		int64_t liValue; /* Integer values over 32 bits */
+		double dValue;
 	} u;
 
 	/* If the EP_TokenOnly flag is set in the Expr.flags mask, then no
@@ -1574,31 +1576,33 @@ struct Expr {
 /*
  * The following are the meanings of bits in the Expr.flags field.
  */
-#define EP_FromJoin  0x000001	/* Originates in ON/USING clause of outer join */
-#define EP_Agg       0x000002	/* Contains one or more aggregate functions */
-#define EP_Resolved  0x000004	/* IDs have been resolved to COLUMNs */
-#define EP_Error     0x000008	/* Expression contains one or more errors */
-#define EP_Distinct  0x000010	/* Aggregate function with DISTINCT keyword */
-#define EP_VarSelect 0x000020	/* pSelect is correlated, not constant */
-#define EP_DblQuoted 0x000040	/* token.z was originally in "..." */
-#define EP_InfixFunc 0x000080	/* True for an infix function: LIKE, etc */
-#define EP_Collate   0x000100	/* Tree contains a TK_COLLATE operator */
-#define EP_IntValue  0x000400	/* Integer value contained in u.iValue */
-#define EP_xIsSelect 0x000800	/* x.pSelect is valid (otherwise x.pList is) */
-#define EP_Skip      0x001000	/* COLLATE, AS, or UNLIKELY */
-#define EP_Reduced   0x002000	/* Expr struct EXPR_REDUCEDSIZE bytes only */
-#define EP_TokenOnly 0x004000	/* Expr struct EXPR_TOKENONLYSIZE bytes only */
-#define EP_Static    0x008000	/* Held in memory not obtained from malloc() */
-#define EP_MemToken  0x010000	/* Need to sqlDbFree() Expr.zToken */
-#define EP_NoReduce  0x020000	/* Cannot EXPRDUP_REDUCE this Expr */
-#define EP_Unlikely  0x040000	/* unlikely() or likelihood() function */
-#define EP_ConstFunc 0x080000	/* A sql_FUNC_CONSTANT or _SLOCHNG function */
-#define EP_CanBeNull 0x100000	/* Can be null despite NOT NULL constraint */
-#define EP_Subquery  0x200000	/* Tree contains a TK_SELECT operator */
-#define EP_Alias     0x400000	/* Is an alias for a result set column */
-#define EP_Leaf      0x800000	/* Expr.pLeft, .pRight, .u.pSelect all NULL */
+#define EP_FromJoin  0x0000001	/* Originates in ON/USING clause of outer join */
+#define EP_Agg       0x0000002	/* Contains one or more aggregate functions */
+#define EP_Resolved  0x0000004	/* IDs have been resolved to COLUMNs */
+#define EP_Error     0x0000008	/* Expression contains one or more errors */
+#define EP_Distinct  0x0000010	/* Aggregate function with DISTINCT keyword */
+#define EP_VarSelect 0x0000020	/* pSelect is correlated, not constant */
+#define EP_DblQuoted 0x0000040	/* token.z was originally in "..." */
+#define EP_InfixFunc 0x0000080	/* True for an infix function: LIKE, etc */
+#define EP_Collate   0x0000100	/* Tree contains a TK_COLLATE operator */
+#define EP_FlValue   0x0000200  /* Float value in u.fValue */
+#define EP_IntValue  0x0000400	/* Integer value contained in u.iValue */
+#define EP_LIntValue 0x0000800	/* Long integer in u.liValue */
+#define EP_Skip      0x0001000	/* COLLATE, AS, or UNLIKELY */
+#define EP_Reduced   0x0002000	/* Expr struct EXPR_REDUCEDSIZE bytes only */
+#define EP_TokenOnly 0x0004000	/* Expr struct EXPR_TOKENONLYSIZE bytes only */
+#define EP_Static    0x0008000	/* Held in memory not obtained from malloc() */
+#define EP_MemToken  0x0010000	/* Need to sqlDbFree() Expr.zToken */
+#define EP_NoReduce  0x0020000	/* Cannot EXPRDUP_REDUCE this Expr */
+#define EP_Unlikely  0x0040000	/* unlikely() or likelihood() function */
+#define EP_ConstFunc 0x0080000	/* A sql_FUNC_CONSTANT or _SLOCHNG function */
+#define EP_CanBeNull 0x0100000	/* Can be null despite NOT NULL constraint */
+#define EP_Subquery  0x0200000	/* Tree contains a TK_SELECT operator */
+#define EP_Alias     0x0400000	/* Is an alias for a result set column */
+#define EP_Leaf      0x0800000	/* Expr.pLeft, .pRight, .u.pSelect all NULL */
+#define EP_xIsSelect 0x1000000  /* x.pSelect is valid (otherwise x.pList is) */
 /** Expression is system-defined. */
-#define EP_System    0x1000000
+#define EP_System    0x10000000
 
 /*
  * Combinations of two or more EP_* flags
@@ -3753,6 +3757,7 @@ sql_space_def_check_format(const struct space_def *space_def);
 void sqlDetach(Parse *, Expr *);
 int sqlAtoF(const char *z, double *, int);
 int sqlGetInt32(const char *, int *);
+int sqlGetInt64(const char *, int64_t *);
 int sqlAtoi(const char *);
 
 /**

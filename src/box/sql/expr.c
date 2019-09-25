@@ -963,31 +963,29 @@ sql_expr_new_empty(struct sql *db, int op, int extra_size)
 	return e;
 }
 
-/**
- * Try to convert a token of a specified type to integer.
- * @param op Token type.
- * @param token Token itself.
- * @param[out] res Result integer.
- * @retval 0 Success. @A res stores a result.
- * @retval -1 Error. Can not be converted. No diag.
- */
-static inline int
-sql_expr_token_to_int(int op, const struct Token *token, int *res)
-{
-	if (op == TK_INTEGER && token->z != NULL &&
-	    sqlGetInt32(token->z, res) > 0)
-		return 0;
-	return -1;
-}
-
 /** Create an expression of a constant integer. */
 static inline struct Expr *
-sql_expr_new_int(struct sql *db, int value)
+sql_expr_new_int(struct sql *db, const struct Token *token)
 {
 	struct Expr *e = sql_expr_new_empty(db, TK_INTEGER, 0);
 	if (e != NULL) {
 		e->flags |= EP_IntValue;
-		e->u.iValue = value;
+		int val;
+		if (sqlGetInt32(token->z, &val))
+			e->u.iValue = val;
+		else 
+			sqlGetInt64(token->z, &e->u.liValue);
+	}
+	return e;
+}
+
+static inline struct Expr *
+sql_expr_new_double(struct sql *db, const struct Token *token)
+{
+	struct Expr *e = sql_expr_new_empty(db, TK_FLOAT, 0);
+	if (e != NULL) {
+		e->flags |= EP_FlValue;
+		sqlAtoF(token->z, &e->u.dValue, token->n);
 	}
 	return e;
 }
@@ -995,14 +993,15 @@ sql_expr_new_int(struct sql *db, int value)
 struct Expr *
 sql_expr_new(struct sql *db, int op, const struct Token *token)
 {
-	int extra_sz = 0;
+	int extra_size = 0;
 	if (token != NULL) {
-		int val;
-		if (sql_expr_token_to_int(op, token, &val) == 0)
-			return sql_expr_new_int(db, val);
-		extra_sz = token->n + 1;
+		if (op == TK_INTEGER && token->z != NULL)
+			return sql_expr_new_int(db, token);
+		else if (op == TK_FLOAT && token->z != NULL)
+			return sql_expr_new_double(db, token);
+		extra_size = token->n + 1;
 	}
-	struct Expr *e = sql_expr_new_empty(db, op, extra_sz);
+	struct Expr *e = sql_expr_new_empty(db, op, extra_size);
 	if (e == NULL || token == NULL)
 		return e;
 	e->u.zToken = (char *) &e[1];
@@ -1017,10 +1016,10 @@ sql_expr_new_dequoted(struct sql *db, int op, const struct Token *token)
 {
 	int extra_size = 0, rc;
 	if (token != NULL) {
-		int val;
-		assert(token->z != NULL || token->n == 0);
-		if (sql_expr_token_to_int(op, token, &val) == 0)
-			return sql_expr_new_int(db, val);
+		if (op == TK_INTEGER && token->z != NULL)
+			return sql_expr_new_int(db, token);
+		else if (op == TK_FLOAT && token->z != NULL)
+			return sql_expr_new_double(db, token);
 		extra_size = token->n + 1;
 	}
 	struct Expr *e = sql_expr_new_empty(db, op, extra_size);
