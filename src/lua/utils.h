@@ -185,7 +185,7 @@ struct luaL_serializer {
 	 *  + map - at least one table index is not unsigned integer.
 	 *  + regular array - all array indexes are available.
 	 *  + sparse array - at least one array index is missing.
-	 *  + excessively sparse arrat - the number of values missing
+	 *  + excessively sparse array - the number of values missing
 	 * exceeds the configured ratio.
 	 *
 	 * An array is excessively sparse when **all** the following
@@ -212,7 +212,7 @@ struct luaL_serializer {
 	int encode_sparse_safe;
 	/** Max recursion depth for encoding (MsgPack, CJSON only) */
 	int encode_max_depth;
-	/** Enables encoding of NaN and Inf numbers */
+	/** Enables encoding of NaN and Inf numbers (YAML, CJSON only) */
 	int encode_invalid_numbers;
 	/** Floating point numbers precision (YAML, CJSON only) */
 	int encode_number_precision;
@@ -233,7 +233,7 @@ struct luaL_serializer {
 	/** Use NULL for all unrecognizable types */
 	int encode_invalid_as_nil;
 
-	/** Enables decoding NaN and Inf numbers */
+	/** Enables decoding NaN and Inf numbers (YAML, CJSON only) */
 	int decode_invalid_numbers;
 	/** Save __serialize meta-value for decoded arrays and maps */
 	int decode_save_metatables;
