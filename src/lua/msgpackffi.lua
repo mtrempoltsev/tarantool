@@ -224,9 +224,11 @@ local function encode_r(buf, obj, level)
             return
         end
         local serialize = nil
-        local mt = getmetatable(obj)
-        if mt ~= nil then
-            serialize = mt.__serialize
+        if msgpack.cfg.encode_load_metatables then
+            local mt = getmetatable(obj)
+            if mt ~= nil then
+                serialize = mt.__serialize
+            end
         end
         -- calculate the number of array and map elements in the table
         -- TODO: pairs() aborts JIT
@@ -275,7 +277,19 @@ local function encode_r(buf, obj, level)
             error("can not encode FFI type: '"..ffi.typeof(obj).."'")
         end
     else
-        error("can not encode Lua type: '"..type(obj).."'")
+        if msgpack.cfg.encode_use_tostring then
+            obj = tostring(obj)
+            if obj then
+                goto restart
+            else
+                error("can not encode Lua type: '"..type(obj).."'")
+            end
+        else if msgpack.cfg.encode_invalid_as_nil then
+            encode_nil(buf)
+        else
+            error("can not encode Lua type: '"..type(obj).."'")
+        end
+    end
     end
 end
 
