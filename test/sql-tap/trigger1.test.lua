@@ -74,7 +74,7 @@ test:do_catchsql_test(
         END;
     ]], {
         -- <trigger1-1.1.3>
-        1, [[Syntax error near 'STATEMENT']]
+        1, [[Syntax error on line 1 at column 51 near 'STATEMENT']]
         -- </trigger1-1.1.3>
     })
 
@@ -307,7 +307,7 @@ test:do_catchsql_test(
         END;
     ]], {
         -- <trigger1-2.1>
-        1, [[Syntax error near ';']]
+        1, [[Syntax error on line 3 at column 24 near ';']]
         -- </trigger1-2.1>
     })
 
@@ -321,7 +321,7 @@ test:do_catchsql_test(
         END;
     ]], {
         -- <trigger1-2.2>
-        1, [[Syntax error near ';']]
+        1, [[Syntax error on line 4 at column 24 near ';']]
         -- </trigger1-2.2>
     })
 
@@ -823,7 +823,7 @@ test:do_catchsql_test(
         END;
     ]], {
         -- <trigger1-16.4>
-        1, "Syntax error in trigger body: the NOT INDEXED clause is not allowed on UPDATE or DELETE statements within triggers"
+        1, "Syntax error on line 2 at column 34 in trigger body: the NOT INDEXED clause is not allowed on UPDATE or DELETE statements within triggers"
         -- </trigger1-16.4>
     })
 
@@ -835,7 +835,7 @@ test:do_catchsql_test(
         END;
     ]], {
         -- <trigger1-16.5>
-        1, "Syntax error in trigger body: the INDEXED BY clause is not allowed on UPDATE or DELETE statements within triggers"
+        1, "Syntax error on line 2 at column 38 in trigger body: the INDEXED BY clause is not allowed on UPDATE or DELETE statements within triggers"
         -- </trigger1-16.5>
     })
 
@@ -847,7 +847,7 @@ test:do_catchsql_test(
         END;
     ]], {
         -- <trigger1-16.6>
-        1, "Syntax error in trigger body: the NOT INDEXED clause is not allowed on UPDATE or DELETE statements within triggers"
+        1, "Syntax error on line 2 at column 39 in trigger body: the NOT INDEXED clause is not allowed on UPDATE or DELETE statements within triggers"
         -- </trigger1-16.6>
     })
 
@@ -859,7 +859,7 @@ test:do_catchsql_test(
         END;
     ]], {
         -- <trigger1-16.7>
-        1, "Syntax error in trigger body: the INDEXED BY clause is not allowed on UPDATE or DELETE statements within triggers"
+        1, "Syntax error on line 2 at column 43 in trigger body: the INDEXED BY clause is not allowed on UPDATE or DELETE statements within triggers"
         -- </trigger1-16.7>
     })
 

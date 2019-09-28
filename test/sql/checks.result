@@ -42,6 +42,16 @@ box.space._ck_constraint:insert({513, 'CK_CONSTRAINT_01', false, 'SQL', 'X><5'})
 - error: 'Failed to create check constraint ''CK_CONSTRAINT_01'': Syntax error near
     ''<'''
 ...
+box.space._ck_constraint:insert({513, 'CK_CONSTRAINT_01', false, 'SQL', '1.0E+'})
+---
+- error: 'Failed to create check constraint ''CK_CONSTRAINT_01'': Syntax error: unrecognized
+    token: ''1.0E'''
+...
+box.space._ck_constraint:insert({513, 'CK_CONSTRAINT_01', false, 'SQL', 'CREATE'})
+---
+- error: 'Failed to create check constraint ''CK_CONSTRAINT_01'': Keyword ''CREATE''
+    is reserved. Please use double quotes if ''CREATE'' is an identifier.'
+...
 -- Non-existent space test.
 box.space._ck_constraint:insert({550, 'CK_CONSTRAINT_01', false, 'SQL', 'X<5'})
 ---
@@ -160,7 +170,7 @@ box.execute("DROP TABLE t1")
 box.execute("CREATE TABLE first (id NUMBER PRIMARY KEY CHECK(id < 5), a INT CONSTRAINT ONE CHECK(a >< 5));")
 ---
 - null
-- Syntax error near '<'
+- Syntax error on line 1 at column 88 near '<'
 ...
 box.space.FIRST == nil
 ---

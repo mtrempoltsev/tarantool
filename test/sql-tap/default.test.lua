@@ -224,7 +224,7 @@ test:do_catchsql_test(
         CREATE TABLE t6(id INTEGER PRIMARY KEY, b TEXT DEFAULT id);
     ]], {
     -- <default-5.2>
-    1, "Syntax error near 'id'"
+    1, "Syntax error on line 1 at column 64 near 'id'"
     -- </default-5.2>
 })
 
@@ -234,7 +234,7 @@ test:do_catchsql_test(
         CREATE TABLE t6(id INTEGER PRIMARY KEY, b TEXT DEFAULT "id");
     ]], {
     -- <default-5.3>
-    1, "Syntax error near '\"id\"'"
+    1, "Syntax error on line 1 at column 64 near '\"id\"'"
     -- </default-5.3>
 })
 

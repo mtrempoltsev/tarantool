@@ -513,7 +513,8 @@ space_id = box.space.T1.id
 box.execute("CREATE TRIGGER tr1 AFTER INSERT ON t1 BEGIN ; END;")
 ---
 - null
-- FOR EACH STATEMENT triggers are not implemented, please supply FOR EACH ROW clause
+- 'Syntax error on line 1 at column 39: FOR EACH STATEMENT triggers are not implemented,
+  please supply FOR EACH ROW clause'
 ...
 box.execute("DROP TABLE t1;")
 ---

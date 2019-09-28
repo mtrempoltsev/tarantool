@@ -19,6 +19,8 @@ _ = box.space.test:create_index('pk')
 
 -- Invalid expression test.
 box.space._ck_constraint:insert({513, 'CK_CONSTRAINT_01', false, 'SQL', 'X><5'})
+box.space._ck_constraint:insert({513, 'CK_CONSTRAINT_01', false, 'SQL', '1.0E+'})
+box.space._ck_constraint:insert({513, 'CK_CONSTRAINT_01', false, 'SQL', 'CREATE'})
 -- Non-existent space test.
 box.space._ck_constraint:insert({550, 'CK_CONSTRAINT_01', false, 'SQL', 'X<5'})
 -- Pass integer instead of expression.

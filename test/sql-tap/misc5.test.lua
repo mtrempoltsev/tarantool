@@ -347,7 +347,7 @@ test:do_catchsql_test(
         SELECT 123abc
     ]], {
         -- <misc5-10.1>
-        1, [[Syntax error: unrecognized token: '123abc']]
+        1, [[Syntax error on line 1 at column 16 unrecognized token: '123abc']]
         -- </misc5-10.1>
     })
 
@@ -357,7 +357,7 @@ test:do_catchsql_test(
         SELECT 1*123.4e5ghi;
     ]], {
         -- <misc5-10.2>
-        1, [[Syntax error: unrecognized token: '123.4e5ghi']]
+        1, [[Syntax error on line 1 at column 18 unrecognized token: '123.4e5ghi']]
         -- </misc5-10.2>
     })
 

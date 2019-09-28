@@ -256,6 +256,11 @@ struct errcode_record {
 	/*201 */_(ER_NO_SUCH_FIELD_NAME,	"Field '%s' was not found in the tuple") \
 	/*202 */_(ER_FUNC_WRONG_ARG_COUNT,	"Wrong number of arguments is passed to %s(): expected %s, got %d") \
 	/*203 */_(ER_BOOTSTRAP_READONLY,	"Trying to bootstrap a local read-only instance as master") \
+	/*204 */_(ER_SQL_SYNTAX_WITH_POS,	"Syntax error on line %d at column %d in %s: %s") \
+	/*205 */_(ER_SQL_PARSER_GENERIC_WITH_POS,	"Syntax error on line %d at column %d: %s") \
+	/*206 */_(ER_SQL_KEYWORD_IS_RESERVED_WITH_POS,	"Syntax error on line %d at column %d: keyword '%.*s' is reserved. Please use double quotes if '%.*s' is an identifier.") \
+	/*207 */_(ER_SQL_UNRECOGNIZED_SYNTAX_WITH_POS,	"Syntax error on line %d at column %d near '%.*s'") \
+	/*208 */_(ER_SQL_UNKNOWN_TOKEN_WITH_POS,	"Syntax error on line %d at column %d unrecognized token: '%.*s'") \
 
 /*
  * !IMPORTANT! Please follow instructions at start of the file
