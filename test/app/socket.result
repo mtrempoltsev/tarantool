@@ -107,11 +107,11 @@ s:nonblock(true)
 ---
 - true
 ...
-s:readable(.1)
+s:readable(.5)
 ---
 - true
 ...
-s:wait(.1)
+s:wait(.5)
 ---
 - RW
 ...
@@ -1822,8 +1822,14 @@ test_run:cmd("setopt delimiter ';'")
 ---
 - true
 ...
+socket_opened = true
 cfiber = fiber.create(function(sc, rch, wch)
-    while sc:send(wch:get()) and rch:put(sc:receive("*l")) do end
+    while socket_opened do
+        sc:send(wch:get())
+        local data = sc:receive("*l")
+        if not socket_opened then sc:close() end
+        rch:put(data)
+    end
 end, sc, rch, wch);
 ---
 ...
@@ -1936,6 +1942,9 @@ c:receive("*l")
 ---
 - 
 ...
+socket_opened = false
+---
+...
 wch:put("Fu")
 ---
 - true
@@ -1943,10 +1952,6 @@ wch:put("Fu")
 c:send("354 Please type your message\n")
 ---
 - 29
-...
-sc:close()
----
-- 1
 ...
 c:receive("*l", "Line: ")
 ---
@@ -2292,6 +2297,9 @@ sendto_zero(sending_socket, '127.0.0.1', receiving_socket_port)
 ---
 - 0
 ...
+fiber.yield()
+---
+...
 received_message = receiving_socket:recv()
 ---
 ...
@@ -2314,6 +2322,9 @@ e == 0 -- expected true
 sendto_zero(sending_socket, '127.0.0.1', receiving_socket_port)
 ---
 - 0
+...
+fiber.yield()
+---
 ...
 received_message, from = receiving_socket:recvfrom()
 ---
@@ -2392,6 +2403,9 @@ sendto_zero(sending_socket, '127.0.0.1', receiving_socket_port)
 ---
 - 0
 ...
+fiber.yield()
+---
+...
 received_message = receiving_socket:recv(512)
 ---
 ...
@@ -2414,6 +2428,9 @@ e == 0 -- expected true
 sendto_zero(sending_socket, '127.0.0.1', receiving_socket_port)
 ---
 - 0
+...
+fiber.yield()
+---
 ...
 received_message, from = receiving_socket:recvfrom(512)
 ---
@@ -2452,6 +2469,9 @@ sending_socket:sendto('127.0.0.1', receiving_socket_port, message)
 ---
 - 1025
 ...
+fiber.yield()
+---
+...
 received_message = receiving_socket:recv()
 ---
 ...
@@ -2483,6 +2503,9 @@ e
 sending_socket:sendto('127.0.0.1', receiving_socket_port, message)
 ---
 - 1025
+...
+fiber.yield()
+---
 ...
 received_message, from = receiving_socket:recvfrom()
 ---
@@ -2522,6 +2545,9 @@ e
 sending_socket:sendto('127.0.0.1', receiving_socket_port, message)
 ---
 - 1025
+...
+fiber.yield()
+---
 ...
 received_message = receiving_socket:recv(512)
 ---
@@ -2565,6 +2591,9 @@ message = string.rep('y', message_len)
 sending_socket:sendto('127.0.0.1', receiving_socket_port, message)
 ---
 - 1025
+...
+fiber.yield()
+---
 ...
 received_message, from = receiving_socket:recvfrom(512)
 ---
@@ -2816,8 +2845,20 @@ test_run:cmd("clear filter")
 ---
 - true
 ...
--- case: sicket receive inconsistent behavior
+-- case: socket receive inconsistent behavior
 chan = fiber.channel()
+---
+...
+seed = ''
+---
+...
+for d in string.gmatch(box.info.cluster.uuid, '%d') do  seed = seed .. d end
+---
+...
+math.randomseed(tonumber(seed))
+---
+...
+port = 32768 + math.random(0, 32767)
 ---
 ...
 counter = 0
@@ -2826,10 +2867,10 @@ counter = 0
 fn = function(s) counter = 0; while true do s:write((tostring(counter)):rep(chan:get())); counter = counter + 1 end end
 ---
 ...
-srv = socket.tcp_server('0.0.0.0', 8888, fn)
+srv = socket.tcp_server('0.0.0.0', port, fn)
 ---
 ...
-s = socket.connect('localhost', 8888)
+s = socket.connect('localhost', port)
 ---
 ...
 chan:put(5)

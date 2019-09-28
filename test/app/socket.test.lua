@@ -39,8 +39,8 @@ s:nonblock(false)
 s:nonblock()
 s:nonblock(true)
 
-s:readable(.1)
-s:wait(.1)
+s:readable(.5)
+s:wait(.5)
 socket.iowait(s:fd(), 'RW')
 socket.iowait(s:fd(), 3)
 socket.iowait(s:fd(), 'R')
@@ -619,8 +619,14 @@ s:settimeout(100500)
 rch, wch = fiber.channel(1), fiber.channel(1)
 sc = socket.connect(host, port)
 test_run:cmd("setopt delimiter ';'")
+socket_opened = true
 cfiber = fiber.create(function(sc, rch, wch)
-    while sc:send(wch:get()) and rch:put(sc:receive("*l")) do end
+    while socket_opened do
+        sc:send(wch:get())
+        local data = sc:receive("*l")
+        if not socket_opened then sc:close() end
+        rch:put(data)
+    end
 end, sc, rch, wch);
 test_run:cmd("setopt delimiter ''");
 
@@ -651,9 +657,9 @@ rch:get()
 wch:put("DATA\n")
 c:receive(4)
 c:receive("*l")
+socket_opened = false
 wch:put("Fu")
 c:send("354 Please type your message\n")
-sc:close()
 c:receive("*l", "Line: ")
 c:receive()
 c:receive(10)
@@ -778,6 +784,7 @@ e == errno.EAGAIN -- expected true
 
 -- case: recv, zero datagram
 sendto_zero(sending_socket, '127.0.0.1', receiving_socket_port)
+fiber.yield()
 received_message = receiving_socket:recv()
 e = receiving_socket:errno()
 received_message == '' -- expected true
@@ -786,6 +793,7 @@ e == 0 -- expected true
 
 -- case: recvfrom, zero datagram
 sendto_zero(sending_socket, '127.0.0.1', receiving_socket_port)
+fiber.yield()
 received_message, from = receiving_socket:recvfrom()
 e = receiving_socket:errno()
 received_message == '' -- expected true
@@ -812,6 +820,7 @@ e == errno.EAGAIN -- expected true
 
 -- case: recv, zero datagram, explicit size
 sendto_zero(sending_socket, '127.0.0.1', receiving_socket_port)
+fiber.yield()
 received_message = receiving_socket:recv(512)
 e = receiving_socket:errno()
 received_message == '' -- expected true
@@ -820,6 +829,7 @@ e == 0 -- expected true
 
 -- case: recvfrom, zero datagram, explicit size
 sendto_zero(sending_socket, '127.0.0.1', receiving_socket_port)
+fiber.yield()
 received_message, from = receiving_socket:recvfrom(512)
 e = receiving_socket:errno()
 received_message == '' -- expected true
@@ -833,6 +843,7 @@ message = string.rep('x', message_len)
 
 -- case: recv, non-zero length datagram, the buffer size should be evaluated
 sending_socket:sendto('127.0.0.1', receiving_socket_port, message)
+fiber.yield()
 received_message = receiving_socket:recv()
 e = receiving_socket:errno()
 received_message == message -- expected true
@@ -844,6 +855,7 @@ e
 -- case: recvfrom, non-zero length datagram, the buffer size should be
 -- evaluated
 sending_socket:sendto('127.0.0.1', receiving_socket_port, message)
+fiber.yield()
 received_message, from = receiving_socket:recvfrom()
 e = receiving_socket:errno()
 received_message == message -- expected true
@@ -856,6 +868,7 @@ e
 
 -- case: recv truncates a datagram larger then the buffer of an explicit size
 sending_socket:sendto('127.0.0.1', receiving_socket_port, message)
+fiber.yield()
 received_message = receiving_socket:recv(512)
 e = receiving_socket:errno()
 received_message == message:sub(1, 512) -- expected true
@@ -872,6 +885,7 @@ message = string.rep('y', message_len)
 
 -- case: recvfrom truncates a datagram larger then the buffer of an explicit size
 sending_socket:sendto('127.0.0.1', receiving_socket_port, message)
+fiber.yield()
 received_message, from = receiving_socket:recvfrom(512)
 e = receiving_socket:errno()
 received_message == message:sub(1, 512) -- expected true
@@ -960,12 +974,16 @@ server:close()
 
 test_run:cmd("clear filter")
 
--- case: sicket receive inconsistent behavior
+-- case: socket receive inconsistent behavior
 chan = fiber.channel()
+seed = ''
+for d in string.gmatch(box.info.cluster.uuid, '%d') do  seed = seed .. d end
+math.randomseed(tonumber(seed))
+port = 32768 + math.random(0, 32767)
 counter = 0
 fn = function(s) counter = 0; while true do s:write((tostring(counter)):rep(chan:get())); counter = counter + 1 end end
-srv = socket.tcp_server('0.0.0.0', 8888, fn)
-s = socket.connect('localhost', 8888)
+srv = socket.tcp_server('0.0.0.0', port, fn)
+s = socket.connect('localhost', port)
 chan:put(5)
 chan:put(5)
 s:receive(5)
