@@ -271,6 +271,13 @@ local dynamic_cfg = {
 --
 local dynamic_cfg_order = {
     listen                  = 100,
+    -- Order of replication_* options does not matter. The only
+    -- rule - apply before replication itself.
+    replication_timeout     = 150,
+    replication_sync_lag    = 150,
+    replication_sync_timeout    = 150,
+    replication_connect_timeout = 150,
+    replication_connect_quorum  = 150,
     replication             = 200,
 }
 
