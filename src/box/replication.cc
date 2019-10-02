@@ -95,6 +95,7 @@ replication_init(void)
 	vclock_copy(&replicaset.applier.vclock, &replicaset.vclock);
 	rlist_create(&replicaset.applier.on_rollback);
 	rlist_create(&replicaset.applier.on_commit);
+	rlist_create(&replicaset.on_vclock);
 
 	diag_create(&replicaset.applier.diag);
 }
@@ -150,6 +151,9 @@ replica_is_orphan(struct replica *replica)
 static void
 replica_on_applier_state_f(struct trigger *trigger, void *event);
 
+// static void
+// replica_on_vclock_changed(struct trigger *, void *) {};
+
 static struct replica *
 replica_new(void)
 {
@@ -171,6 +175,8 @@ replica_new(void)
 	rlist_create(&replica->in_anon);
 	trigger_create(&replica->on_applier_state,
 		       replica_on_applier_state_f, NULL, NULL);
+	trigger_create(&replica->on_vclock_changed,
+				(trigger_f)0, NULL, NULL);
 	replica->applier_sync_state = APPLIER_DISCONNECTED;
 	latch_create(&replica->order_latch);
 	return replica;

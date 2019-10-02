@@ -188,6 +188,10 @@ struct replicaset {
 	 */
 	struct rlist anon;
 	/**
+	 * List of triggers invoked on lsn changed.
+	 */
+	struct rlist on_vclock;
+	/**
 	 * TX thread local vclock reflecting the state
 	 * of the cluster as maintained by appliers.
 	 */
@@ -277,6 +281,10 @@ struct replica {
 	 * Trigger invoked when the applier changes its state.
 	 */
 	struct trigger on_applier_state;
+	/**
+	 * Trigger invoked when replica's lsn is changed.
+	 */
+	struct trigger on_vclock_changed;
 	/**
 	 * During initial connect or reconnect we require applier
 	 * to sync with the master before the replica can leave
