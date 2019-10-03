@@ -15,7 +15,9 @@ BuildRequires: gcc-c++ >= 4.5
 BuildRequires: coreutils
 BuildRequires: sed
 BuildRequires: readline-devel
+%if (0%{?fedora} > 0 || 0%{?rhel} <= 7)
 BuildRequires: libyaml-devel
+%endif
 BuildRequires: openssl-devel
 BuildRequires: libicu-devel
 #BuildRequires: msgpuck-devel
@@ -64,11 +66,16 @@ BuildRequires: libunwind-devel
 %endif
 
 # For tests
-%if (0%{?fedora} >= 22 || 0%{?rhel} >= 7)
+%if (0%{?fedora} >= 22 || 0%{?rhel} == 7)
 BuildRequires: python >= 2.7
 BuildRequires: python-six >= 1.9.0
 BuildRequires: python-gevent >= 1.0
 BuildRequires: python-yaml >= 3.0.9
+%endif
+%if (0%{?fedora} >= 22 || 0%{?rhel} >= 8)
+BuildRequires: python2 >= 2.7
+BuildRequires: python2-six >= 1.9.0
+BuildRequires: python2-yaml >= 3.0.9
 %endif
 
 Name: tarantool
