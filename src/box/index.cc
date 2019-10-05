@@ -364,6 +364,7 @@ box_index_iterator(uint32_t space_id, uint32_t index_id, int type,
 			 "Invalid iterator type");
 		return NULL;
 	}
+	say_info("%s key: %s\n", __func__, mp_str(key));
 	enum iterator_type itype = (enum iterator_type) type;
 	struct space *space;
 	struct index *index;

@@ -181,6 +181,10 @@ tree_iterator_next(struct iterator *iterator, struct tuple **ret)
 		(struct memtx_tree_index *)iterator->index;
 	struct tree_iterator *it = tree_iterator(iterator);
 	assert(it->current.tuple != NULL);
+	struct memtx_tree_key_data *kd = &it->key_data;
+	say_info("%s get next tuple, key part count = %u, key[1] = %s\n",
+		 __func__, kd->part_count,
+		 kd->part_count > 0 ? mp_str(kd->key) : "nil");
 	struct memtx_tree_data *check =
 		memtx_tree_iterator_get_elem(&index->tree, &it->tree_iterator);
 	if (check == NULL || !memtx_tree_data_is_equal(check, &it->current)) {
@@ -975,6 +979,8 @@ static struct iterator *
 memtx_tree_index_create_iterator(struct index *base, enum iterator_type type,
 				 const char *key, uint32_t part_count)
 {
+	say_info("%s part count = %u, key[1] = %s\n", __func__, part_count,
+		 part_count > 0 ? mp_str(key) : "nil");
 	struct memtx_tree_index *index = (struct memtx_tree_index *)base;
 	struct memtx_engine *memtx = (struct memtx_engine *)base->engine;
 	struct key_def *cmp_def = memtx_tree_cmp_def(&index->tree);
@@ -987,6 +993,7 @@ memtx_tree_index_create_iterator(struct index *base, enum iterator_type type,
 	}
 
 	if (part_count == 0) {
+		say_info("%s part count is 0, select all", __func__);
 		/*
 		 * If no key is specified, downgrade equality
 		 * iterators to a full range.
