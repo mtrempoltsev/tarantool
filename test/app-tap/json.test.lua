@@ -22,7 +22,7 @@ end
 
 tap.test("json", function(test)
     local serializer = require('json')
-    test:plan(40)
+    test:plan(52)
 
     test:test("unsigned", common.test_unsigned, serializer)
     test:test("signed", common.test_signed, serializer)
@@ -154,4 +154,57 @@ tap.test("json", function(test)
     _, err_msg = pcall(serializer.decode, '{"hello": "world",\n 100: 200}')
     test:ok(string.find(err_msg, 'line 2 at character 2') ~= nil,
             'mistake on second line')
+
+    --
+    -- gh-3316: Make sure that tokens 'T_*' are  absent in error
+    -- messages and a context is printed.
+    --
+    _, err_msg = pcall(serializer.decode, '{')
+    test:ok(string.find(err_msg, '\\0') ~= nil and
+            string.find(err_msg, 'here ^^^') ~= nil,
+            '"\\0" instead of T_END and context')
+    _, err_msg = pcall(serializer.decode, '{{: "world"}')
+    test:ok(string.find(err_msg, '\'{\'') ~= nil and
+            string.find(err_msg, 'here ^^^') ~= nil,
+            '"{" instead of T_OBJ_BEGIN and context')
+    _, err_msg = pcall(serializer.decode, '{"a": "world"}}')
+    test:ok(string.find(err_msg, '\'}\'') ~= nil and
+            string.find(err_msg, 'here ^^^') ~= nil,
+            '"}" instead of T_OBJ_END and context')
+    _, err_msg = pcall(serializer.decode, '{[: "world"}')
+    test:ok(string.find(err_msg, '\'[\'', 1, true) ~= nil and
+            string.find(err_msg, 'here ^^^') ~= nil,
+            '"[" instead of T_ARR_BEGIN and context')
+    _, err_msg = pcall(serializer.decode, '{]: "world"}')
+    test:ok(string.find(err_msg, '\']\'', 1, true) ~= nil and
+            string.find(err_msg, 'here ^^^') ~= nil,
+            '"}" instead of T_ARR_END and context')
+    _, err_msg = pcall(serializer.decode, '{,: "world"}')
+    test:ok(string.find(err_msg, '\',\'') ~= nil and
+            string.find(err_msg, 'here ^^^') ~= nil,
+            '"," instead of T_COMMA and context')
+    _, err_msg = pcall(serializer.decode, '{:: "world"}')
+    test:ok(string.find(err_msg, '\':\'') ~= nil and
+            string.find(err_msg, 'here ^^^') ~= nil,
+            '":" instead of T_COLON and context')
+    _, err_msg = pcall(serializer.decode, '{1: "world"}')
+    test:ok(string.find(err_msg, 'int') ~= nil and
+            string.find(err_msg, 'here ^^^') ~= nil,
+            '"int" instead of T_INT and context')
+    _, err_msg = pcall(serializer.decode, '{1.0: "world"}')
+    test:ok(string.find(err_msg, 'number') ~= nil and
+            string.find(err_msg, 'here ^^^') ~= nil,
+            '"number" instead of T_NUMBER and context')
+    _, err_msg = pcall(serializer.decode, '{true: "world"}')
+    test:ok(string.find(err_msg, 'boolean') ~= nil and
+            string.find(err_msg, 'here ^^^') ~= nil,
+            '"boolean" instead of T_BOOLEAN and context')
+    _, err_msg = pcall(serializer.decode, '{null: "world"}')
+    test:ok(string.find(err_msg, 'null') ~= nil and
+            string.find(err_msg, 'here ^^^') ~= nil,
+            '"null" instead of T_NULL and context')
+    serializer.cfg{decode_max_depth = 1}
+    _, err_msg = pcall(serializer.decode, '{{{}}}')
+    test:ok(string.find(err_msg, 'here ^^^') ~= nil,
+            'context when too many nested structures')
 end)

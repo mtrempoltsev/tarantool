@@ -72,23 +72,23 @@ typedef enum {
 } json_token_type_t;
 
 static const char *json_token_type_name[] = {
-    "T_OBJ_BEGIN",
-    "T_OBJ_END",
-    "T_ARR_BEGIN",
-    "T_ARR_END",
-    "T_STRING",
-    "T_UINT",
-    "T_INT",
-    "T_NUMBER",
-    "T_BOOLEAN",
-    "T_NULL",
-    "T_COLON",
-    "T_COMMA",
-    "T_END",
-    "T_WHITESPACE",
-    "T_LINEFEED",
-    "T_ERROR",
-    "T_UNKNOWN",
+    "'{'",
+    "'}'",
+    "'['",
+    "']'",
+    "string",
+    "unsigned int",
+    "int",
+    "number",
+    "boolean",
+    "null",
+    "':'",
+    "','",
+    "'\\0'",
+    "whitespace",
+    "'\\n'",
+    "error",
+    "unknown symbol",
     NULL
 };
 
@@ -825,6 +825,21 @@ static void json_next_token(json_parse_t *json, json_token_t *token)
     json_set_token_error(token, json, "invalid token");
 }
 
+/*
+ * Copy 10 or less (if string @a ptr is shorter than 10)
+ * characters to static string buffer @a aux_str.
+ *
+ * @param aux_str String static buffer to fill.
+ * @param ptr String with the context.
+ */
+static void fill_context(char *aux_str, const char *ptr)
+{
+    int i = 0;
+    for(; ptr[i] != '\0' && i < 10; i++)
+        aux_str[i] = ptr[i];
+    aux_str[i] = '\0';
+}
+
 /* This function does not return.
  * DO NOT CALL WITH DYNAMIC MEMORY ALLOCATED.
  * The only supported exception is the temporary parser string
@@ -843,9 +858,13 @@ static void json_throw_parse_error(lua_State *l, json_parse_t *json,
     else
         found = json_token_type_name[token->type];
 
+    char context[11];
+    fill_context(context, json->ptr);
+
     /* Note: token->column_index is 0 based, display starting from 1 */
-    luaL_error(l, "Expected %s but found %s on line %d at character %d", exp,
-               found, json->line_count, token->column_index + 1);
+    luaL_error(l, "Expected %s but found %s on line %d at character %d here ^^^"
+               "%s...", exp, found, json->line_count, token->column_index + 1,
+               context);
 }
 
 static inline void json_decode_ascend(json_parse_t *json)
@@ -862,10 +881,13 @@ static void json_decode_descend(lua_State *l, json_parse_t *json, int slots)
         return;
     }
 
+    char context[11];
+    fill_context(context, json->ptr);
+
     strbuf_free(json->tmp);
-    luaL_error(l, "Found too many nested data structures (%d) on line %d at "
-               "character %d", json->current_depth, json->line_count,
-               json->ptr - json->cur_line_ptr);
+    luaL_error(l, "Found too many nested data structures (%d) on line %d at cha"
+               "racter %d here ^^^%s...", json->current_depth, json->line_count,
+               json->ptr - json->cur_line_ptr, context);
 }
 
 static void json_parse_object_context(lua_State *l, json_parse_t *json)
@@ -897,7 +919,7 @@ static void json_parse_object_context(lua_State *l, json_parse_t *json)
 
         json_next_token(json, &token);
         if (token.type != T_COLON)
-            json_throw_parse_error(l, json, "colon", &token);
+            json_throw_parse_error(l, json, "':'", &token);
 
         /* Fetch value */
         json_next_token(json, &token);
@@ -914,7 +936,7 @@ static void json_parse_object_context(lua_State *l, json_parse_t *json)
         }
 
         if (token.type != T_COMMA)
-            json_throw_parse_error(l, json, "comma or object end", &token);
+            json_throw_parse_error(l, json, "',' or '}'", &token);
 
         json_next_token(json, &token);
     }
@@ -954,7 +976,7 @@ static void json_parse_array_context(lua_State *l, json_parse_t *json)
         }
 
         if (token.type != T_COMMA)
-            json_throw_parse_error(l, json, "comma or array end", &token);
+            json_throw_parse_error(l, json, "',' or ']'", &token);
 
         json_next_token(json, &token);
     }
@@ -1039,7 +1061,7 @@ static int json_decode(lua_State *l)
     json_next_token(&json, &token);
 
     if (token.type != T_END)
-        json_throw_parse_error(l, &json, "the end", &token);
+        json_throw_parse_error(l, &json, "\\0", &token);
 
     strbuf_free(json.tmp);
 
