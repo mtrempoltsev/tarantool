@@ -38,6 +38,7 @@
 
 #include "box/applier.h"
 #include "box/relay.h"
+#include "lua/trigger.h"
 #include "box/iproto.h"
 #include "box/wal.h"
 #include "box/replication.h"
@@ -146,6 +147,23 @@ lbox_pushrelay(lua_State *L, struct relay *relay)
 	}
 }
 
+/**
+ * Set/Reset/Get replication.on_vclock trigger
+ */
+static int
+lbox_replication_on_vclock(struct lua_State *L)
+{
+	int top = lua_gettop(L);
+
+	if (top < 1 || !lua_istable(L, 1)) {
+		luaL_error(L,
+	   "usage: replication:on_vclock(function | nil, [function | nil])");
+	}
+
+	return lbox_trigger_reset(L, 3, &replicaset.on_vclock,
+		NULL, NULL);
+}
+
 static void
 lbox_pushreplica(lua_State *L, struct replica *replica)
 {
@@ -190,6 +208,10 @@ lbox_info_replication(struct lua_State *L)
 	lua_pushliteral(L, "mapping");
 	lua_setfield(L, -2, "__serialize");
 	lua_setmetatable(L, -2);
+
+	lua_pushstring(L, "on_vclock");
+	lua_pushcfunction(L, lbox_replication_on_vclock);
+	lua_settable(L, -3);
 
 	replicaset_foreach(replica) {
 		/* Applier hasn't received replica id yet */

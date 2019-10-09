@@ -151,9 +151,6 @@ replica_is_orphan(struct replica *replica)
 static void
 replica_on_applier_state_f(struct trigger *trigger, void *event);
 
-// static void
-// replica_on_vclock_changed(struct trigger *, void *) {};
-
 static struct replica *
 replica_new(void)
 {
