@@ -393,6 +393,7 @@ tx_status_update(struct cmsg *msg)
 {
 	struct relay_status_msg *status = (struct relay_status_msg *)msg;
 	vclock_copy(&status->relay->tx.vclock, &status->vclock);
+	trigger_run(&replicaset.on_vclock, status->relay->replica);
 	static const struct cmsg_hop route[] = {
 		{relay_status_update, NULL}
 	};
@@ -697,7 +698,6 @@ relay_subscribe(struct replica *replica, int fd, uint64_t sync,
 	relay->r = recovery_new(cfg_gets("wal_dir"), false,
 			        replica_clock);
 	vclock_copy(&relay->tx.vclock, replica_clock);
-	trigger_run(&replicaset.on_vclock, (void*)0);
 	relay->version_id = replica_version_id;
 
 	int rc = cord_costart(&relay->cord, "subscribe",

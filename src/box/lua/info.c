@@ -147,6 +147,15 @@ lbox_pushrelay(lua_State *L, struct relay *relay)
 	}
 }
 
+static int
+lbox_push_replica_vclock(struct lua_State *L, void *event)
+{
+	struct replica *replica = (struct replica *) event;
+	lbox_pushvclock(L, relay_vclock(replica->relay));
+	lua_pushinteger(L, replica->id);
+	return 2;
+}
+
 /**
  * Set/Reset/Get replication.on_vclock trigger
  */
@@ -161,7 +170,7 @@ lbox_replication_on_vclock(struct lua_State *L)
 	}
 
 	return lbox_trigger_reset(L, 3, &replicaset.on_vclock,
-		NULL, NULL);
+				  lbox_push_replica_vclock, NULL);
 }
 
 static void
