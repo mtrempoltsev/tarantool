@@ -55,6 +55,7 @@ enum field_type {
 	FIELD_TYPE_STRING,
 	FIELD_TYPE_NUMBER,
 	FIELD_TYPE_INTEGER,
+	FIELD_TYPE_DOUBLE,
 	FIELD_TYPE_BOOLEAN,
 	FIELD_TYPE_VARBINARY,
 	FIELD_TYPE_SCALAR,
@@ -167,6 +168,23 @@ field_mp_type_is_compatible(enum field_type type, const char *data,
 	assert((size_t)mp_type < CHAR_BIT * sizeof(*field_mp_type));
 	uint32_t mask;
 	if (mp_type != MP_EXT) {
+		/*
+		 * If the number cannot be converted to DOUBLE,
+		 * throw an error. Since native numbers in Lua are
+		 * DOUBLE, an error is possible only for numbers
+		 * represented as CDATA.
+		 */
+		if (type == FIELD_TYPE_DOUBLE) {
+			if (mp_type == MP_INT) {
+				int64_t i = mp_decode_int(&data);
+				double d = (double)i;
+				return i == (int64_t)d;
+			} else if (mp_type == MP_UINT) {
+				uint64_t i = mp_decode_uint(&data);
+				double d = (double)i;
+				return i == (uint64_t)d;
+			}
+		}
 		return field_mp_plain_type_is_compatible(type, mp_type,
 							 is_nullable);
 	} else {

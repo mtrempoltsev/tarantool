@@ -441,6 +441,7 @@ tuple_compare_field(const char *field_a, const char *field_b,
 						    mp_typeof(*field_a),
 						    field_b,
 						    mp_typeof(*field_b));
+	case FIELD_TYPE_DOUBLE:
 	case FIELD_TYPE_NUMBER:
 		return mp_compare_number(field_a, field_b);
 	case FIELD_TYPE_BOOLEAN:
@@ -474,6 +475,7 @@ tuple_compare_field_with_type(const char *field_a, enum mp_type a_type,
 	case FIELD_TYPE_INTEGER:
 		return mp_compare_integer_with_type(field_a, a_type,
 						    field_b, b_type);
+	case FIELD_TYPE_DOUBLE:
 	case FIELD_TYPE_NUMBER:
 		return mp_compare_number_with_type(field_a, a_type,
 						   field_b, b_type);
@@ -1751,6 +1753,7 @@ field_hint(const char *field, struct coll *coll)
 		return field_hint_unsigned(field);
 	case FIELD_TYPE_INTEGER:
 		return field_hint_integer(field);
+	case FIELD_TYPE_DOUBLE:
 	case FIELD_TYPE_NUMBER:
 		return field_hint_number(field);
 	case FIELD_TYPE_STRING:
@@ -1856,6 +1859,9 @@ key_def_set_hint_func(struct key_def *def)
 		break;
 	case FIELD_TYPE_NUMBER:
 		key_def_set_hint_func<FIELD_TYPE_NUMBER>(def);
+		break;
+	case FIELD_TYPE_DOUBLE:
+		key_def_set_hint_func<FIELD_TYPE_DOUBLE>(def);
 		break;
 	case FIELD_TYPE_STRING:
 		key_def_set_hint_func<FIELD_TYPE_STRING>(def);
