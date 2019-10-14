@@ -57,7 +57,7 @@ function wait_not_follow(replicaA, replicaB)
     end, box.cfg.replication_timeout)
 end;
 function test_timeout()
-    local replicaA = box.info.replication[1].upstream or box.info.replication[2].upstream  
+    local replicaA = box.info.replication[1].upstream or box.info.replication[2].upstream
     local replicaB = box.info.replication[3].upstream or box.info.replication[2].upstream
     local follows = test_run:wait_cond(function()
         return replicaA.status == 'follow' or replicaB.status == 'follow'
