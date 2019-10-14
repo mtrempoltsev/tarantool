@@ -57,7 +57,7 @@ function wait_not_follow(replicaA, replicaB)
     end, box.cfg.replication_timeout)
 end;
 function test_timeout()
-    local replicaA = box.info.replication[1].upstream or box.info.replication[2].upstream
+    local replicaA = box.info.replication[1].upstream or box.info.replication[2].upstream  
     local replicaB = box.info.replication[3].upstream or box.info.replication[2].upstream
     local follows = test_run:wait_cond(function()
         return replicaA.status == 'follow' or replicaB.status == 'follow'
@@ -332,3 +332,26 @@ box.cfg{replication=""}
 
 box.cfg{replication_connect_timeout=replication_connect_timeout}
 box.cfg{replication_connect_quorum=replication_connect_quorum}
+
+--
+-- gh-3808 Trigger on_vclock_changed added
+--
+engine = test_run:get_cfg('engine')
+test_run:cleanup_cluster()
+box.schema.user.grant('guest', 'replication')
+_ = box.schema.space.create('test', {engine = engine})
+_ = box.space.test:create_index('pk')
+test_run:cmd("create server replica with rpl_master=default, script='replication/replica.lua'")
+test_run:cmd("start server replica")
+test_run:cmd("switch replica")
+
+box.info.replication:on_vclock(function print("vclock changed") end)
+test_run:cmd("switch default")
+box.space["test"].insert(1)
+test_run:cmd("stop server replica")
+test_run:cmd("cleanup server replica")
+test_run:cmd("delete server replica")
+test_run:cleanup_cluster()
+
+box.space.test:drop()
+box.schema.user.revoke('guest', 'replication')
