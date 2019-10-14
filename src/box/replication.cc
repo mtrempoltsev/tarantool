@@ -172,8 +172,6 @@ replica_new(void)
 	rlist_create(&replica->in_anon);
 	trigger_create(&replica->on_applier_state,
 		       replica_on_applier_state_f, NULL, NULL);
-	trigger_create(&replica->on_vclock_changed,
-				(trigger_f)0, NULL, NULL);
 	replica->applier_sync_state = APPLIER_DISCONNECTED;
 	latch_create(&replica->order_latch);
 	return replica;

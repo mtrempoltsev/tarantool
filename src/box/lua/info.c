@@ -162,15 +162,8 @@ lbox_push_replica_vclock(struct lua_State *L, void *event)
 static int
 lbox_replication_on_vclock(struct lua_State *L)
 {
-	int top = lua_gettop(L);
-
-	if (top < 1 || !lua_istable(L, 1)) {
-		luaL_error(L,
-	   "usage: replication:on_vclock(function | nil, [function | nil])");
-	}
-
-	return lbox_trigger_reset(L, 3, &replicaset.on_vclock,
-				  lbox_push_replica_vclock, NULL);
+	return lbox_trigger_reset(L, 2, &replicaset.on_vclock,
+      lbox_push_replica_vclock, NULL);
 }
 
 static void

@@ -282,10 +282,6 @@ struct replica {
 	 */
 	struct trigger on_applier_state;
 	/**
-	 * Trigger invoked when replica's lsn is changed.
-	 */
-	struct trigger on_vclock_changed;
-	/**
 	 * During initial connect or reconnect we require applier
 	 * to sync with the master before the replica can leave
 	 * read-only mode. This enum reflects the state of the

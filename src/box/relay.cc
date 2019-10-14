@@ -693,7 +693,7 @@ relay_subscribe(struct replica *replica, int fd, uint64_t sync,
 		relay_stop(relay);
 		replica_on_relay_stop(replica);
 	});
-	
+
 	vclock_copy(&relay->local_vclock_at_subscribe, &replicaset.vclock);
 	relay->r = recovery_new(cfg_gets("wal_dir"), false,
 			        replica_clock);

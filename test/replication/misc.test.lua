@@ -345,14 +345,14 @@ test_run:cmd("create server replica with rpl_master=default, script='replication
 test_run:cmd("start server replica")
 replication_events = {}
 -- trigger setup
-trigger = box.info.replication:on_vclock(function(vclock, replica_id) replication_events[replica_id] = vclock end)
+trigger = box.info.replication.on_vclock(function(vclock, replica_id) replication_events[replica_id] = vclock end)
 for i = 0, 99 do box.space["test"]:insert({i}) end
 -- wait until replica catches up the local one
 test_run:wait_cond(function() return box.info.replication[2].downstream.vclock ~= box.info.vclock end)
 -- check that the trigger caught the last transaction
 replication_events[box.info.replication[2].id][box.info.id] == box.info.lsn
 -- trigger reset
-_ = box.info.replication:on_vclock(nil, trigger)
+_ = box.info.replication.on_vclock(nil, trigger)
 for i = 100, 199 do box.space["test"]:insert({i}) end
 -- wait until replica catches up the local one
 test_run:wait_cond(function() return box.info.replication[2].downstream.vclock ~= box.info.vclock end)
