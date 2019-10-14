@@ -49,6 +49,12 @@
 #include "session.h"
 
 typedef bool (*sysview_filter_f)(struct space *, struct tuple *);
+typedef int (*sysview_get_f)(struct index *index, const char *key,
+			     uint32_t part_count, struct tuple **result);
+typedef struct iterator *(*sysview_create_iterator_f)(struct index *index,
+						      enum iterator_type type,
+						      const char *key,
+						      uint32_t part_count);
 
 struct sysview_engine {
 	struct engine base;
@@ -61,6 +67,8 @@ struct sysview_index {
 	uint32_t source_space_id;
 	uint32_t source_index_id;
 	sysview_filter_f filter;
+	sysview_get_f get;
+	sysview_create_iterator_f create_iterator;
 };
 
 struct sysview_iterator {
@@ -140,7 +148,7 @@ sysview_index_create_iterator(struct index *base, enum iterator_type type,
 	it->base.next = sysview_iterator_next;
 	it->base.free = sysview_iterator_free;
 
-	it->source = index_create_iterator(pk, type, key, part_count);
+	it->source = index->create_iterator(pk, type, key, part_count);
 	if (it->source == NULL) {
 		mempool_free(&sysview->iterator_pool, it);
 		return NULL;
@@ -167,7 +175,7 @@ sysview_index_get(struct index *base, const char *key,
 	if (exact_key_validate(pk->def->key_def, key, part_count) != 0)
 		return -1;
 	struct tuple *tuple;
-	if (index_get(pk, key, part_count, &tuple) != 0)
+	if (index->get(pk, key, part_count, &tuple) != 0)
 		return -1;
 	if (tuple == NULL || !index->filter(source, tuple))
 		*result = NULL;
@@ -424,42 +432,58 @@ sysview_space_create_index(struct space *space, struct index_def *def)
 	uint32_t source_space_id;
 	uint32_t source_index_id;
 	sysview_filter_f filter;
+	sysview_get_f get;
+	sysview_create_iterator_f create_iterator;
 
 	switch (def->space_id) {
 	case BOX_VSPACE_ID:
 		source_space_id = BOX_SPACE_ID;
 		source_index_id = def->iid;
 		filter = vspace_filter;
+		get = index_get;
+		create_iterator = index_create_iterator;
 		break;
 	case BOX_VINDEX_ID:
 		source_space_id = BOX_INDEX_ID;
 		source_index_id = def->iid;
 		filter = vspace_filter;
+		get = index_get;
+		create_iterator = index_create_iterator;
 		break;
 	case BOX_VUSER_ID:
 		source_space_id = BOX_USER_ID;
 		source_index_id = def->iid;
 		filter = vuser_filter;
+		get = index_get;
+		create_iterator = index_create_iterator;
 		break;
 	case BOX_VFUNC_ID:
 		source_space_id = BOX_FUNC_ID;
 		source_index_id = def->iid;
 		filter = vfunc_filter;
+		get = index_get;
+		create_iterator = index_create_iterator;
 		break;
 	case BOX_VPRIV_ID:
 		source_space_id = BOX_PRIV_ID;
 		source_index_id = def->iid;
 		filter = vpriv_filter;
+		get = index_get;
+		create_iterator = index_create_iterator;
 		break;
 	case BOX_VSEQUENCE_ID:
 		source_space_id = BOX_SEQUENCE_ID;
 		source_index_id = def->iid;
 		filter = vsequence_filter;
+		get = index_get;
+		create_iterator = index_create_iterator;
 		break;
 	case BOX_VCOLLATION_ID:
 		source_space_id = BOX_COLLATION_ID;
 		source_index_id = def->iid;
 		filter = vcollation_filter;
+		get = index_get;
+		create_iterator = index_create_iterator;
 		break;
 	default:
 		diag_set(ClientError, ER_MODIFY_INDEX,
@@ -484,6 +508,8 @@ sysview_space_create_index(struct space *space, struct index_def *def)
 	index->source_space_id = source_space_id;
 	index->source_index_id = source_index_id;
 	index->filter = filter;
+	index->get = get;
+	index->create_iterator = create_iterator;
 	return &index->base;
 }
 
