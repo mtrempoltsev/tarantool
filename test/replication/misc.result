@@ -857,7 +857,7 @@ replication_events = {}
 ---
 ...
 -- trigger setup
-trigger = box.info.replication:on_vclock(function(vclock, replica_id) replication_events[replica_id] = vclock end)
+trigger = box.info.replication.on_vclock(function(vclock, replica_id) replication_events[replica_id] = vclock end)
 ---
 ...
 for i = 0, 99 do box.space["test"]:insert({i}) end
@@ -874,7 +874,7 @@ replication_events[box.info.replication[2].id][box.info.id] == box.info.lsn
 - true
 ...
 -- trigger reset
-_ = box.info.replication:on_vclock(nil, trigger)
+_ = box.info.replication.on_vclock(nil, trigger)
 ---
 ...
 for i = 100, 199 do box.space["test"]:insert({i}) end
