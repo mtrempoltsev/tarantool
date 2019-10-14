@@ -345,9 +345,10 @@ test_run:cmd("create server replica with rpl_master=default, script='replication
 test_run:cmd("start server replica")
 test_run:cmd("switch replica")
 
-box.info.replication:on_vclock(function print("vclock changed") end)
+box.info.replication:on_vclock(function() print("vclock changed") end)
 test_run:cmd("switch default")
-box.space["test"].insert(1)
+box.space["test"]:insert({1})
+while test_run:grep_log('replica', 'vclock changed') == nil do fiber.sleep(0.01) end
 test_run:cmd("stop server replica")
 test_run:cmd("cleanup server replica")
 test_run:cmd("delete server replica")
