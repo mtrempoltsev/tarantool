@@ -1539,6 +1539,11 @@ cmd ::= DROP INDEX ifexists(E) nm(X) ON fullname(Y).   {
   sql_drop_index(pParse);
 }
 
+///////////////////////////// The SET command ////////////////////////////////
+cmd ::= SET nm(X) EQ term(Y).  {
+    sql_set_settings(pParse,&X,Y.pExpr);
+}
+
 ///////////////////////////// The PRAGMA command /////////////////////////////
 //
 cmd ::= PRAGMA nm(X).                        {

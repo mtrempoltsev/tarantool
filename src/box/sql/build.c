@@ -3397,3 +3397,63 @@ sql_option_tuple(struct tuple_format *format, int option_id,
 	*result = tuple;
 	return 0;
 }
+
+void
+sql_set_settings(struct Parse *parse_context, struct Token *name,
+		 struct Expr *value)
+{
+	int option_id;
+	struct session *session = current_session();
+	char *name_str = sql_name_from_token(sql_get(), name);
+	if (name_str == NULL) {
+		parse_context->is_aborted = true;
+		return;
+	}
+	for (option_id = 0; option_id < SQL_OPTION_max; ++option_id) {
+		if (strcasecmp(sql_options[option_id].name, name_str) == 0)
+			break;
+	}
+	if (option_id == SQL_OPTION_max) {
+		diag_set(ClientError, ER_SQL_PARSER_GENERIC, "Setting is "
+			 "not found");
+		parse_context->is_aborted = true;
+		return;
+	}
+	struct sql_option_metadata *option = &sql_options[option_id];
+	if (value->type != option->field_type) {
+		diag_set(ClientError, ER_INCONSISTENT_TYPES,
+			 field_type_strs[option->field_type],
+			 field_type_strs[value->type]);
+		parse_context->is_aborted = true;
+		return;
+	}
+	if (value->type == FIELD_TYPE_BOOLEAN) {
+		bool is_set = value->op == TK_TRUE;
+		if (is_set)
+			session->sql_flags |= option->mask;
+		else
+			session->sql_flags &= ~option->mask;
+#ifndef NDEBUG
+		if (option_id == SQL_OPTION_PARSER_TRACE) {
+			if (is_set)
+				sqlParserTrace(stdout, "parser: ");
+			else
+				sqlParserTrace(NULL, NULL);
+		}
+#endif
+	} else if (option_id == SQL_OPTION_DEFAULT_ENGINE) {
+		enum sql_storage_engine engine =
+			STR2ENUM(sql_storage_engine, value->u.zToken);
+		if (engine == sql_storage_engine_MAX) {
+			parse_context->is_aborted = true;
+			diag_set(ClientError, ER_NO_SUCH_ENGINE,
+				 value->u.zToken);
+			return;
+		}
+		current_session()->sql_default_engine = engine;
+	} else {
+		assert(option_id == SQL_OPTION_COMPOUND_SELECT_LIMIT);
+		sql_limit(sql_get(), SQL_LIMIT_COMPOUND_SELECT,
+			  value->u.iValue);
+	}
+}

@@ -54,3 +54,134 @@ box.execute('PRAGMA')
   - ['vdbe_trace', 0]
   - ['where_trace', 0]
 ...
+--
+-- gh-4511: make sure that SET works.
+--
+box.execute('SELECT "name" FROM "_vsession_settings";')
+---
+- metadata:
+  - name: name
+    type: string
+  rows:
+  - ['sql_compound_select_limit']
+  - ['sql_default_engine']
+  - ['sql_defer_foreign_keys']
+  - ['sql_full_column_names']
+  - ['sql_parser_trace']
+  - ['sql_recursive_triggers']
+  - ['sql_reverse_unordered_selects']
+  - ['sql_select_trace']
+  - ['sql_trace']
+  - ['sql_vdbe_addoptrace']
+  - ['sql_vdbe_debug']
+  - ['sql_vdbe_eqp']
+  - ['sql_vdbe_listing']
+  - ['sql_vdbe_trace']
+  - ['sql_where_trace']
+...
+engine = box.space._vsession_settings:get{'sql_default_engine'}.value
+---
+...
+order = box.space._vsession_settings:get{'sql_reverse_unordered_selects'}.value
+---
+...
+box.execute('SET sql_default_engine = 1;')
+---
+- null
+- 'Inconsistent types: expected string got integer'
+...
+box.execute("SET sql_default_engine = 'some_engine';")
+---
+- null
+- Space engine 'some_engine' does not exist
+...
+box.execute("SET engine = 'vinyl';")
+---
+- null
+- Setting is not found
+...
+box.execute("SET sql_defer_foreign_keys = 'vinyl';")
+---
+- null
+- 'Inconsistent types: expected boolean got string'
+...
+engine == box.space._vsession_settings:get{'sql_default_engine'}.value
+---
+- true
+...
+order == box.space._vsession_settings:get{'sql_reverse_unordered_selects'}.value
+---
+- true
+...
+box.execute("SET sql_default_engine = 'vinyl';")
+---
+- row_count: 0
+...
+box.execute("SET sql_reverse_unordered_selects = true;")
+---
+- row_count: 0
+...
+box.execute('SELECT * FROM "_vsession_settings";')
+---
+- metadata:
+  - name: name
+    type: string
+  - name: value
+    type: any
+  rows:
+  - ['sql_where_trace', false]
+  - ['sql_vdbe_trace', false]
+  - ['sql_vdbe_listing', false]
+  - ['sql_vdbe_eqp', false]
+  - ['sql_vdbe_debug', false]
+  - ['sql_vdbe_addoptrace', false]
+  - ['sql_trace', false]
+  - ['sql_select_trace', false]
+  - ['sql_reverse_unordered_selects', true]
+  - ['sql_recursive_triggers', true]
+  - ['sql_parser_trace', false]
+  - ['sql_full_column_names', false]
+  - ['sql_defer_foreign_keys', false]
+  - ['sql_default_engine', 'vinyl']
+  - ['sql_compound_select_limit', 30]
+...
+box.execute("SET sql_default_engine = 'memtx';")
+---
+- row_count: 0
+...
+box.execute("SET sql_reverse_unordered_selects = false;")
+---
+- row_count: 0
+...
+box.execute('SELECT * FROM "_vsession_settings";')
+---
+- metadata:
+  - name: name
+    type: string
+  - name: value
+    type: any
+  rows:
+  - ['sql_compound_select_limit', 30]
+  - ['sql_default_engine', 'memtx']
+  - ['sql_defer_foreign_keys', false]
+  - ['sql_full_column_names', false]
+  - ['sql_parser_trace', false]
+  - ['sql_recursive_triggers', true]
+  - ['sql_reverse_unordered_selects', false]
+  - ['sql_select_trace', false]
+  - ['sql_trace', false]
+  - ['sql_vdbe_addoptrace', false]
+  - ['sql_vdbe_debug', false]
+  - ['sql_vdbe_eqp', false]
+  - ['sql_vdbe_listing', false]
+  - ['sql_vdbe_trace', false]
+  - ['sql_where_trace', false]
+...
+box.execute("SET sql_default_engine = '"..engine.."';")
+---
+- row_count: 0
+...
+box.execute("SET sql_reverse_unordered_selects = "..tostring(order)..";")
+---
+- row_count: 0
+...

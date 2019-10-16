@@ -4458,4 +4458,18 @@ int
 sql_fieldno_by_name(struct Parse *parse_context, struct Expr *field_name,
 		    uint32_t *fieldno);
 
+/**
+ * Set new value for SQL setting.
+ *
+ * @param parse_context Parsing context.
+ * @param name Name of SQL setting to change.
+ * @param value New values of SQL setting.
+ *
+ * @retval 0 on success.
+ * @retval -1 on error.
+ */
+void
+sql_set_settings(struct Parse *parse_context, struct Token *name,
+		 struct Expr *value);
+
 #endif				/* sqlINT_H */
