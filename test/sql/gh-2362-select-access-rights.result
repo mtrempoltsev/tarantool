@@ -7,7 +7,7 @@ engine = test_run:get_cfg('engine')
 nb = require('net.box')
 ---
 ...
-box.execute("PRAGMA sql_default_engine='"..engine.."'")
+box.execute("SET sql_default_engine='"..engine.."'")
 ---
 - row_count: 0
 ...

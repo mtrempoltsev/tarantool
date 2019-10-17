@@ -7,7 +7,7 @@ test_run = require('test_run').new()
 engine = test_run:get_cfg('engine')
 ---
 ...
-box.execute('pragma sql_default_engine=\''..engine..'\'')
+box.execute('set sql_default_engine=\''..engine..'\'')
 ---
 - row_count: 0
 ...
@@ -731,37 +731,6 @@ res.metadata
     type: INTEGER
   - name: detail
     type: TEXT
-...
--- When pragma count_changes is on, statements INSERT, REPLACE and
--- UPDATE returns number of changed columns. Make sure that this
--- result has a column type.
-cn:execute("PRAGMA count_changes = 1;")
----
-- row_count: 0
-...
-cn:execute("INSERT INTO t1 VALUES (1), (2), (3);")
----
-- metadata:
-  - name: rows inserted
-    type: INTEGER
-  rows:
-  - [3]
-...
-cn:execute("REPLACE INTO t1 VALUES (2), (3), (4), (5);")
----
-- metadata:
-  - name: rows replaced
-    type: INTEGER
-  rows:
-  - [4]
-...
-cn:execute("UPDATE t1 SET id = id + 100 WHERE id > 10;")
----
-- metadata:
-  - name: rows updated
-    type: INTEGER
-  rows:
-  - [0]
 ...
 -- Make sure that built-in functions have a right returning type.
 --

@@ -2,7 +2,7 @@ test_run = require('test_run').new()
 engine = test_run:get_cfg('engine')
 nb = require('net.box')
 
-box.execute("PRAGMA sql_default_engine='"..engine.."'")
+box.execute("SET sql_default_engine='"..engine.."'")
 box.execute("CREATE TABLE t1 (s1 INT PRIMARY KEY, s2 INT UNIQUE);")
 box.execute("CREATE TABLE t2 (s1 INT PRIMARY KEY);")
 box.execute("INSERT INTO t1 VALUES (1, 1);")

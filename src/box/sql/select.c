@@ -1760,7 +1760,6 @@ generateColumnNames(Parse * pParse,	/* Parser context */
 	Vdbe *v = pParse->pVdbe;
 	int i, j;
 	sql *db = pParse->db;
-	int fullNames, shortNames;
 	/* If this is an EXPLAIN, skip this step */
 	if (pParse->explain) {
 		return;
@@ -1778,8 +1777,6 @@ generateColumnNames(Parse * pParse,	/* Parser context */
 	}
 	assert(pTabList != 0);
 	pParse->colNamesSet = 1;
-	fullNames = (pParse->sql_flags & SQL_FullColNames) != 0;
-	shortNames = (pParse->sql_flags & SQL_ShortColNames) != 0;
 	sqlVdbeSetNumCols(v, pEList->nExpr);
 	uint32_t var_count = 0;
 	for (i = 0; i < pEList->nExpr; i++) {
@@ -1806,12 +1803,7 @@ generateColumnNames(Parse * pParse,	/* Parser context */
 			struct space_def *space_def = pTabList->a[j].space->def;
 			assert(iCol >= 0 && iCol < (int)space_def->field_count);
 			zCol = space_def->fields[iCol].name;
-			if (!shortNames && !fullNames) {
-				sqlVdbeSetColName(v, i, COLNAME_NAME,
-						      sqlDbStrDup(db,
-								      pEList->a[i].zSpan),
-						      SQL_DYNAMIC);
-			} else if (fullNames) {
+			if ((pParse->sql_flags & SQL_FullColNames) != 0) {
 				char *zName = 0;
 				zName = sqlMPrintf(db, "%s.%s",
 						       space_def->name, zCol);
@@ -2022,8 +2014,7 @@ sqlResultSetOfSelect(Parse * pParse, Select * pSelect)
 	sql *db = pParse->db;
 
 	uint32_t saved_flags = pParse->sql_flags;
-	pParse->sql_flags |= ~SQL_FullColNames;
-	pParse->sql_flags &= SQL_ShortColNames;
+	pParse->sql_flags = 0;
 	sqlSelectPrep(pParse, pSelect, 0);
 	if (pParse->is_aborted)
 		return NULL;
@@ -4926,8 +4917,7 @@ selectExpander(Walker * pWalker, Select * p)
 		struct ExprList_item *a = pEList->a;
 		ExprList *pNew = 0;
 		uint32_t flags = pParse->sql_flags;
-		int longNames = (flags & SQL_FullColNames) != 0
-		    && (flags & SQL_ShortColNames) == 0;
+		int longNames = (flags & SQL_FullColNames) != 0;
 
 		for (k = 0; k < pEList->nExpr; k++) {
 			pE = a[k].pExpr;

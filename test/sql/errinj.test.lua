@@ -1,7 +1,7 @@
 remote = require('net.box')
 test_run = require('test_run').new()
 engine = test_run:get_cfg('engine')
-box.execute('pragma sql_default_engine=\''..engine..'\'')
+box.execute('set sql_default_engine=\''..engine..'\'')
 errinj = box.error.injection
 fiber = require('fiber')
 

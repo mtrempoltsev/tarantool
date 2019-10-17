@@ -124,13 +124,12 @@ test:do_execsql_test("update-3.6", [[
 })
 
 test:do_test("update-3.7", function()
-  test:execsql "PRAGMA count_changes=on"
-  return test:execsql "UPDATE test1 SET f2=f2/3 WHERE f1<=5"
-end, {
+  return box.execute("UPDATE test1 SET f2=f2/3 WHERE f1<=5").row_count
+end,
   -- <update-3.7>
   5
   -- </update-3.7>
-})
+)
 
 test:do_execsql_test("update-3.8", [[
   SELECT f1,f2 FROM test1 ORDER BY f1
@@ -144,7 +143,6 @@ test:do_execsql_test("update-3.9", [[
   UPDATE test1 SET f2=f2/3 WHERE f1>5
 ]], {
   -- <update-3.9>
-  5
   -- </update-3.9>
 })
 
@@ -162,7 +160,6 @@ test:do_execsql_test("update-3.11", [[
   UPDATE test1 SET F2=f1, F1=f2
 ]], {
   -- <update-3.11>
-  10
   -- </update-3.11>
 })
 
@@ -175,7 +172,6 @@ test:do_execsql_test("update-3.12", [[
 })
 
 test:do_test("update-3.13", function()
-  test:execsql "PRAGMA count_changes=off"
   return test:execsql "UPDATE test1 SET F2=f1, F1=f2"
 end, {
   -- <update-3.13>
@@ -255,16 +251,13 @@ end, {
 })
 
 test:do_execsql_test("update-4.6", [[
-  PRAGMA count_changes=on;
   UPDATE test1 SET f1=f1-1 WHERE f1<=100 and f2==128;
 ]], {
   -- <update-4.6>
-  2
   -- </update-4.6>
 })
 
 test:do_execsql_test("update-4.7", [[
-  PRAGMA count_changes=off;
   SELECT f1,f2 FROM test1 ORDER BY f1,f2
 ]], {
   -- <update-4.7>
@@ -392,16 +385,13 @@ test:do_execsql_test("update-5.5.5", [[
 })
 
 test:do_execsql_test("update-5.6", [[
-  PRAGMA count_changes=on;
   UPDATE test1 SET f1=f1-1 WHERE f1<=100 and f2==128;
 ]], {
   -- <update-5.6>
-  2
   -- </update-5.6>
 })
 
 test:do_execsql_test("update-5.6.1", [[
-  PRAGMA count_changes=off;
   SELECT f1,f2 FROM test1 ORDER BY f1,f2
 ]], {
   -- <update-5.6.1>
@@ -443,7 +433,6 @@ test:do_execsql_test("update-5.6.5", [[
 
 -- Repeat the previous sequence of tests with a different index.
 --
---test:execsql "PRAGMA synchronous='FULL'"
 test:do_test("update-6.0", function()
   test:execsql "DROP INDEX idx1 ON test1"
   test:execsql "CREATE INDEX idx1 ON test1(f2)"

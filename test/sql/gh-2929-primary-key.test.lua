@@ -1,6 +1,6 @@
 test_run = require('test_run').new()
 engine = test_run:get_cfg('engine')
-box.execute('pragma sql_default_engine=\''..engine..'\'')
+box.execute('set sql_default_engine=\''..engine..'\'')
 
 -- All tables in SQL are now WITHOUT ROW ID, so if user
 -- tries to create table without a primary key, an appropriate error message

@@ -1,7 +1,7 @@
 env = require('test_run')
 test_run = env.new()
 engine = test_run:get_cfg('engine')
-box.execute('pragma sql_default_engine=\''..engine..'\'')
+box.execute('set sql_default_engine=\''..engine..'\'')
 
 sql_tokenizer = require('sql_tokenizer')
 

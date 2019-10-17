@@ -191,15 +191,6 @@ sql_table_delete_from(struct Parse *parse, struct SrcList *tab_list,
 				     tab_cursor);
 	}
 
-	/* Initialize the counter of the number of rows deleted,
-	 * if we are counting rows.
-	 */
-	int reg_count = -1;
-	uint32_t sql_flags = parse->sql_flags;
-	if ((sql_flags & SQL_CountRows) != 0) {
-		reg_count = ++parse->nMem;
-		sqlVdbeAddOp2(v, OP_Integer, 0, reg_count);
-	}
 	/* Special case: A DELETE without a WHERE clause deletes
 	 * everything. It is easier just to erase the whole table.
 	 */
@@ -283,12 +274,6 @@ sql_table_delete_from(struct Parse *parse, struct SrcList *tab_list,
 		 * sqlWhereOkOnePass.
 		 */
 		/* assert(is_complex || one_pass != ONEPASS_OFF); */
-
-		/* Keep track of the number of rows to be
-		 * deleted.
-		 */
-		if ((sql_flags & SQL_CountRows) != 0)
-			sqlVdbeAddOp2(v, OP_AddImm, reg_count, 1);
 
 		/* Extract the primary key for the current row */
 		if (!is_view) {
@@ -411,17 +396,6 @@ sql_table_delete_from(struct Parse *parse, struct SrcList *tab_list,
 			VdbeCoverage(v);
 			sqlVdbeJumpHere(v, addr_loop);
 		}
-	}
-
-	/* Return the number of rows that were deleted. */
-	if ((sql_flags & SQL_CountRows) != 0 &&
-	    parse->triggered_space != NULL) {
-		sqlVdbeAddOp2(v, OP_ResultRow, reg_count, 1);
-		sqlVdbeSetNumCols(v, 1);
-		sqlVdbeSetColName(v, 0, COLNAME_NAME, "rows deleted",
-				      SQL_STATIC);
-		sqlVdbeSetColName(v, 0, COLNAME_DECLTYPE, "INTEGER",
-				  SQL_STATIC);
 	}
 
  delete_from_cleanup:

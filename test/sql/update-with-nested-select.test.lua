@@ -1,6 +1,6 @@
 test_run = require('test_run').new()
 engine = test_run:get_cfg('engine')
-box.execute('pragma sql_default_engine=\''..engine..'\'')
+box.execute('set sql_default_engine=\''..engine..'\'')
 
 -- box.cfg()
 
@@ -8,7 +8,7 @@ box.execute('pragma sql_default_engine=\''..engine..'\'')
 box.execute("CREATE TABLE t1(a integer primary key, b INT UNIQUE, e INT);");
 
 -- Debug
--- box.execute("PRAGMA vdbe_debug=ON ; INSERT INTO zoobar VALUES (111, 222, 'c3', 444)")
+-- box.execute("SET vdbe_debug=ON ; INSERT INTO zoobar VALUES (111, 222, 'c3', 444)")
 
 -- Seed entries
 box.execute("INSERT INTO t1 VALUES(1,4,6);");

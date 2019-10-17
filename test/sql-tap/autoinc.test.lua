@@ -640,7 +640,7 @@ test:do_test(
         -- </autoinc-10.3>
     })
 
-test:catchsql(" pragma recursive_triggers = off ")
+test:catchsql("SET sql_recursive_triggers = false")
 -- Ticket #3928.  Make sure that triggers to not make extra slots in
 -- the sql_SEQUENCE table.
 --

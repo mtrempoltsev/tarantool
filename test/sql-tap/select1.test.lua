@@ -916,7 +916,7 @@ test:do_catchsql2_test(
 test:do_test(
     "select1-6.1.1",
     function()
-        test:execsql "PRAGMA full_column_names=on"
+        test:execsql "SET sql_full_column_names = true"
         return test:catchsql2 "SELECT f1 FROM test1 ORDER BY f2"
     end, {
         -- <select1-6.1.1>
@@ -940,7 +940,7 @@ test:do_catchsql2_test(
         SELECT * FROM test1 WHERE f1==11
     ]], {
         -- <select1-6.1.3>
-        0, {"F1", 11, "F2", 22}
+        0, {"TEST1.F1", 11, "TEST1.F2", 22}
         -- </select1-6.1.3>
     })
 
@@ -952,11 +952,11 @@ test:do_test(
             msg = test:execsql2 "SELECT DISTINCT * FROM test1 WHERE f1==11"
             end)
         v = v == true and {0} or {1} 
-        test:execsql "PRAGMA full_column_names=off"
+        test:execsql "SET sql_full_column_names = false"
         return table.insert(v,msg) or v
     end, {
         -- <select1-6.1.4>
-        0, {"F1", 11, "F2", 22}
+        0, {"TEST1.F1", 11, "TEST1.F2", 22}
         -- </select1-6.1.4>
     })
 
@@ -1043,13 +1043,13 @@ test:do_catchsql2_test(
 test:do_test(
     "select1-6.5.1",
     function()
-        test:execsql2 "PRAGMA full_column_names=on"
+        test:execsql2 "SET sql_full_column_names = true"
         local msg
         v = pcall( function ()
                 msg = test:execsql2 "SELECT test1.f1+F2 FROM test1 ORDER BY f2"
             end)
         v = v == true and {0} or {1}
-        test:execsql2 "PRAGMA full_column_names=off"
+        test:execsql2 "SET sql_full_column_names = false"
         return table.insert(v,msg) or v
     end, {
         -- <select1-6.5.1>
@@ -1124,15 +1124,14 @@ test:do_test(
     "select1-6.9.3",
     function()
         test:execsql [[
-            PRAGMA short_column_names='OFF';
-            PRAGMA full_column_names='OFF';
+            SET sql_full_column_names = false;
         ]]
         return test:execsql2 [[
             SELECT test1 . f1, test1 . f2 FROM test1 LIMIT 1
         ]]
     end, {
         -- <select1-6.9.3>
-        "test1 . f1", 11, "test1 . f2", 22
+        "F1", 11, "F2", 22
         -- </select1-6.9.3>
     })
 
@@ -1140,8 +1139,7 @@ test:do_test(
     "select1-6.9.4",
     function()
         test:execsql [[
-            PRAGMA short_column_names='OFF';
-            PRAGMA full_column_names='ON';
+            SET sql_full_column_names = true;
         ]]
         return test:execsql2 [[
             SELECT test1 . f1, test1 . f2 FROM test1 LIMIT 1
@@ -1156,8 +1154,7 @@ test:do_test(
     "select1-6.9.5",
     function()
         test:execsql [[
-            PRAGMA short_column_names='OFF';
-            PRAGMA full_column_names='ON';
+            SET sql_full_column_names = true;
         ]]
         return test:execsql2 [[
             SELECT 123.45;
@@ -1238,8 +1235,7 @@ test:do_test(
     "select1-6.9.11",
     function()
         test:execsql [[
-            PRAGMA short_column_names='ON';
-            PRAGMA full_column_names='ON';
+            SET sql_full_column_names = true;
         ]]
         return test:execsql2 [[
             SELECT a.f1, b.f2 FROM test1 a, test1 b LIMIT 1
@@ -1264,8 +1260,7 @@ test:do_test(
     "select1-6.9.13",
     function()
         test:execsql [[
-            PRAGMA short_column_names='ON';
-            PRAGMA full_column_names='OFF';
+            SET sql_full_column_names = false;
         ]]
         return test:execsql2 [[
             SELECT a.f1, b.f1 FROM test1 a, test1 b LIMIT 1
@@ -1290,8 +1285,7 @@ test:do_test(
     "select1-6.9.15",
     function()
         test:execsql [[
-            PRAGMA short_column_names='OFF';
-            PRAGMA full_column_names='ON';
+            SET sql_full_column_names = true;
         ]]
         return test:execsql2 [[
             SELECT a.f1, b.f1 FROM test1 a, test1 b LIMIT 1
@@ -1313,8 +1307,7 @@ test:do_execsql2_test(
     })
 
 test:execsql [[
-    PRAGMA short_column_names='ON';
-    PRAGMA full_column_names='OFF';
+    SET sql_full_column_names = false;
 ]]
 test:do_catchsql2_test(
         "select1-6.10",

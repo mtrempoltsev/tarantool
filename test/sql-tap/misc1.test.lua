@@ -219,7 +219,7 @@ test:do_test(
         local r = test:execsql([[
             CREATE TABLE t1(a TEXT primary KEY);
             INSERT INTO t1 VALUES('hi');
-            PRAGMA full_column_names=on;
+            SET sql_full_column_names = true;
             --SELECT rowid, * FROM t1;
             SELECT * FROM t1;
         ]])

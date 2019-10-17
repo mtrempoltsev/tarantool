@@ -14,7 +14,7 @@ test:plan(17)
 --
 -------------------------------------------------------------------------
 -- This file implements regression tests for sql library. The
--- focus of this file is testing the reverse_select_order pragma.
+-- focus of this file is testing the reverse_select_order option.
 --
 -- $Id: whereA.test,v 1.3 2009/06/10 19:33:29 drh Exp $
 -- ["set","testdir",[["file","dirname",["argv0"]]]]
@@ -39,7 +39,7 @@ test:do_test(
     "whereA-1.2",
     function()
         return test:execsql [[
-            PRAGMA reverse_unordered_selects=1;
+            SET sql_reverse_unordered_selects = true;
             SELECT * FROM t1;
         ]]
     end, {
@@ -55,7 +55,7 @@ test:do_test(
         --db close
         --sql db test.db
         return test:execsql [[
-            PRAGMA reverse_unordered_selects=1;
+            SET sql_reverse_unordered_selects = true;
             SELECT * FROM t1;
         ]]
     end, {
@@ -68,7 +68,7 @@ test:do_test(
 --   db close
 --   sql db test.db
 --   db eval {
---     PRAGMA reverse_unordered_selects=1;
+--     SET sql_reverse_unordered_selects = true;
 --     SELECT * FROM t1 ORDER BY rowid;
 --   }
 -- } {1 2 3 2 hello world 3 4.53 {}}
@@ -76,11 +76,11 @@ test:do_test(
     "whereA-1.6",
     function()
         return test:execsql [[
-            PRAGMA reverse_unordered_selects;
+            SELECT "value" FROM "_vsession_settings" WHERE "name" = 'sql_reverse_unordered_selects';
         ]]
     end, {
         -- <whereA-1.6>
-        1
+        true
         -- </whereA-1.6>
     })
 
@@ -108,7 +108,7 @@ test:do_test(
     "whereA-2.1",
     function()
         return test:execsql [[
-            PRAGMA reverse_unordered_selects=0;
+            SET sql_reverse_unordered_selects = false;
             SELECT * FROM t1 WHERE a>0;
         ]]
     end, {
@@ -121,7 +121,7 @@ test:do_test(
     "whereA-2.2",
     function()
         return test:execsql [[
-            PRAGMA reverse_unordered_selects=1;
+            SET sql_reverse_unordered_selects = true;
             SELECT * FROM t1 WHERE a>0;
         ]]
     end, {
@@ -132,7 +132,7 @@ test:do_test(
 
 -- do_test whereA-2.3 {
 --   db eval {
---     PRAGMA reverse_unordered_selects=1;
+--     SET sql_reverse_unordered_selects = true;
 --     SELECT * FROM t1 WHERE a>0 ORDER BY rowid;
 --   }
 -- } {1 2 3 2 hello world 3 4.53 {}}
@@ -140,7 +140,7 @@ test:do_test(
     "whe:reA-3.1",
     function()
         return test:execsql [[
-            PRAGMA reverse_unordered_selects=0;
+            SET sql_reverse_unordered_selects = false;
             SELECT * FROM t1 WHERE b>0;
         ]]
     end, {
@@ -153,7 +153,7 @@ test:do_test(
     "whereA-3.2",
     function()
         return test:execsql [[
-            PRAGMA reverse_unordered_selects=1;
+            SET sql_reverse_unordered_selects = true;
             SELECT * FROM t1 WHERE b>0;
         ]]
     end, {
@@ -166,7 +166,7 @@ test:do_test(
     "whereA-3.3",
     function()
         return test:execsql [[
-            PRAGMA reverse_unordered_selects=1;
+            SET sql_reverse_unordered_selects = true;
             SELECT * FROM t1 WHERE b>0 ORDER BY b;
         ]]
     end, {

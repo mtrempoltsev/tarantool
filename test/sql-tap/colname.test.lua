@@ -1,6 +1,6 @@
 #!/usr/bin/env tarantool
 test = require("sqltester")
-test:plan(63)
+test:plan(62)
 
 --!./tcltestrunner.lua
 -- 2008 July 15
@@ -47,24 +47,14 @@ local function lreplace(arr, pos, len, val)
 end
 
 test:do_test(
-    "colname-1.1",
-    function()
-        return test:execsql "PRAGMA short_column_names"
-    end, {
-        -- <colname-1.1>
-        1
-        -- </colname-1.1>
-    })
-
-test:do_test(
     "colname-1.2",
     function()
-        return test:execsql "PRAGMA full_column_names"
-    end, {
+        return box.space._vsession_settings:get("sql_full_column_names").value
+    end,
         -- <colname-1.2>
-        0
+        false
         -- </colname-1.2>
-    })
+    )
 
 -- Tests for then short=ON and full=any
 --
@@ -177,8 +167,7 @@ test:do_test(
     "colname-3.1",
     function()
         test:execsql [[
-            PRAGMA short_column_names='OFF';
-            PRAGMA full_column_names='OFF';
+            SET sql_full_column_names = false;
             CREATE VIEW v3 AS SELECT tabC.a, txyZ.x, *
               FROM tabc, txyz ORDER BY 1 LIMIT 1;
             CREATE VIEW v4 AS SELECT tabC.a, txyZ.x, tboTh.a, tbotH.x, * 
@@ -199,7 +188,7 @@ test:do_execsql2_test(
         SELECT Tabc.a, tAbc.b, taBc.c FROM tabc
     ]], {
         -- <colname-3.2>
-        "Tabc.a", 1, "tAbc.b", 2, "taBc.c", 3
+        "A", 1, "B", 2, "C", 3
         -- </colname-3.2>
     })
 
@@ -209,7 +198,7 @@ test:do_execsql2_test(
         SELECT +tabc.a, -tabc.b, tabc.c FROM tabc
     ]], {
         -- <colname-3.3>
-        "+tabc.a", 1, "-tabc.b", -2, "tabc.c", 3
+        "+tabc.a", 1, "-tabc.b", -2, "C", 3
         -- </colname-3.3>
     })
 
@@ -229,7 +218,7 @@ test:do_execsql2_test(
         SELECT Tabc.a, Txyz.x, * FROM tabc, txyz;
     ]], {
         -- <colname-3.5>
-        "Tabc.a", 1, "Txyz.x", 4, "A", 1, "B", 2, "C", 3, "X", 4, "Y", 5, "Z", 6
+        "A", 1, "X", 4, "A", 1, "B", 2, "C", 3, "X", 4, "Y", 5, "Z", 6
         -- </colname-3.5>
     })
 
@@ -259,7 +248,7 @@ test:do_execsql2_test(
         SELECT v1.a, * FROM v1 ORDER BY 2;
     ]], {
         -- <colname-3.8>
-        "v1.a",1,"A",1,"X",4,"A_1",1,"B",2,"C",3,"X_1",4,"Y",5,"Z",6
+        "A",1,"A",1,"X",4,"A_1",1,"B",2,"C",3,"X_1",4,"Y",5,"Z",6
         -- </colname-3.8>
     })
 
@@ -298,8 +287,7 @@ test:do_test(
     "colname-4.1",
     function()
         test:execsql [[
-            PRAGMA short_column_names='OFF';
-            PRAGMA full_column_names='ON';
+            SET sql_full_column_names = true;
             CREATE VIEW v5 AS SELECT tabC.a, txyZ.x, *
               FROM tabc, txyz ORDER BY 1 LIMIT 1;
             CREATE VIEW v6 AS SELECT tabC.a, txyZ.x, tboTh.a, tbotH.x, * 
@@ -456,8 +444,7 @@ test:do_test(
         -- instead of reconnect to database
         -- we are just turning settings to default state
         test:execsql([[
-            PRAGMA short_column_names='ON';
-            PRAGMA full_column_names='OFF';
+            SET sql_full_column_names = false;
             ]])
         test:execsql [=[
             CREATE TABLE t6(a INT primary key, "'a'" INT, """a""" INT, "[a]" INT,  "`a`" INT);

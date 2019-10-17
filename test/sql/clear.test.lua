@@ -1,6 +1,6 @@
 test_run = require('test_run').new()
 engine = test_run:get_cfg('engine')
-box.execute('pragma sql_default_engine=\''..engine..'\'')
+box.execute('set sql_default_engine=\''..engine..'\'')
 
 -- box.cfg()
 
@@ -9,7 +9,7 @@ box.execute("CREATE TABLE zoobar (c1 INT, c2 INT PRIMARY KEY, c3 TEXT, c4 INT)")
 box.execute("CREATE UNIQUE INDEX zoobar2 ON zoobar(c1, c4)")
 
 -- Debug
--- box.execute("PRAGMA vdbe_debug=ON;")
+-- box.execute("SET vdbe_debug=ON;")
 
 -- Seed entry
 for i=1, 100 do box.execute(string.format("INSERT INTO zoobar VALUES (%d, %d, 'c3', 444)", i+i, i)) end

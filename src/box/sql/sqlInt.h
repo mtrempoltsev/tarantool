@@ -3941,8 +3941,6 @@ int
 sql_rem_int(int64_t lhs, bool is_lhs_neg, int64_t rhs, bool is_rhs_neg,
 	    int64_t *res, bool *is_res_neg);
 
-u8 sqlGetBoolean(const char *z, u8);
-
 const void *sqlValueText(sql_value *);
 int sqlValueBytes(sql_value *);
 void sqlValueSetStr(sql_value *, int, const void *,

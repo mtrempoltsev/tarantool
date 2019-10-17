@@ -1,6 +1,6 @@
 test_run = require('test_run').new()
 engine = test_run:get_cfg('engine')
-box.execute('pragma sql_default_engine=\''..engine..'\'')
+box.execute('set sql_default_engine=\''..engine..'\'')
 
 -- box.cfg()
 
@@ -8,7 +8,7 @@ box.execute('pragma sql_default_engine=\''..engine..'\'')
 box.execute("CREATE TABLE zzzoobar (c1 INT, c2 INT PRIMARY KEY, c3 TEXT, c4 INT)")
 
 -- Debug
--- box.execute("PRAGMA vdbe_debug=ON ; INSERT INTO zzzoobar VALUES (111, 222, 'c3', 444)")
+-- box.execute("SET vdbe_debug=ON ; INSERT INTO zzzoobar VALUES (111, 222, 'c3', 444)")
 
 box.execute("CREATE INDEX zb ON zzzoobar(c1, c3)")
 

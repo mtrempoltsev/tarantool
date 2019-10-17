@@ -1,6 +1,6 @@
 #!/usr/bin/env tarantool
 test = require("sqltester")
-test:plan(48)
+test:plan(45)
 
 --!./tcltestrunner.lua
 -- 2009 August 24
@@ -36,12 +36,9 @@ testprefix = "triggerC"
 --               REPLACE conflict resolution. And that they are not fired
 --               if recursive triggers are not enabled.
 --
--- triggerC-6.*: Test that the recursive_triggers pragma returns correct
---               results when invoked without an argument.
---
 -- Enable recursive triggers for this file.
 --
-test:execsql " PRAGMA recursive_triggers = on "
+test:execsql("SET sql_recursive_triggers = true;")
 ---------------------------------------------------------------------------
 -- This block of tests, triggerC-1.*, are not aimed at any specific
 -- property of the triggers sub-system. They were created to debug
@@ -504,7 +501,7 @@ test:do_execsql_test(
 test:do_execsql_test(
     "triggerC-5.3.0",
     [[
-        PRAGMA recursive_triggers = off
+        SET sql_recursive_triggers = false
     ]], {
         -- <triggerC-5.3.0>
 
@@ -534,47 +531,11 @@ test:do_execsql_test(
 test:do_execsql_test(
     "triggerC-5.3.8",
     [[
-        PRAGMA recursive_triggers = on
+        SET sql_recursive_triggers = true
     ]], {
         -- <triggerC-5.3.8>
 
         -- </triggerC-5.3.8>
-    })
-
----------------------------------------------------------------------------
--- This block of tests, triggerC-6.*, tests that "PRAGMA recursive_triggers"
--- statements return the current value of the recursive triggers flag.
---
-test:do_execsql_test(
-    "triggerC-6.1",
-    [[
-        PRAGMA recursive_triggers
-    ]], {
-        -- <triggerC-6.1>
-        1
-        -- </triggerC-6.1>
-    })
-
-test:do_execsql_test(
-    "triggerC-6.2",
-    [[
-        PRAGMA recursive_triggers = off;
-        PRAGMA recursive_triggers;
-    ]], {
-        -- <triggerC-6.2>
-        0
-        -- </triggerC-6.2>
-    })
-
-test:do_execsql_test(
-    "triggerC-6.3",
-    [[
-        PRAGMA recursive_triggers = on;
-        PRAGMA recursive_triggers;
-    ]], {
-        -- <triggerC-6.3>
-        1
-        -- </triggerC-6.3>
     })
 
 -- MUST_WORK_TEST
@@ -890,7 +851,7 @@ test:execsql(
 test:do_execsql_test(
     "triggerC-13.1",
     [[
-        PRAGMA recursive_triggers = 'ON';
+        SET sql_recursive_triggers = true;
         CREATE TABLE t12(id INTEGER PRIMARY KEY, a INT, b INT);
         INSERT INTO t12 VALUES(1, 1, 2);
         CREATE TRIGGER tr12 AFTER UPDATE ON t12 FOR EACH ROW BEGIN
@@ -974,7 +935,7 @@ test:do_execsql_test(
 test:do_execsql_test(
     "triggerC-15.1.1",
     [[
-        PRAGMA recursive_triggers = 1;
+        SET sql_recursive_triggers = true;
         CREATE TABLE node(
             id int not null primary key,
             pid int not null default 0,

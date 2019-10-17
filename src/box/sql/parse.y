@@ -1564,9 +1564,6 @@ cmd ::= PRAGMA nm(X) LP minus_num(Y) RP.     {
 cmd ::= PRAGMA nm(X) LP nm(Z) DOT nm(Y) RP.  {
     sqlPragma(pParse,&X,&Y,&Z,0);
 }
-cmd ::= PRAGMA .                            {
-    sqlPragma(pParse, 0,0,0,0);
-}
 
 nmnum(A) ::= plus_num(A).
 nmnum(A) ::= STRING(A).

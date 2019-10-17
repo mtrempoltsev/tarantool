@@ -2,7 +2,7 @@ env = require('test_run')
 test_run = env.new()
 test_run:cmd("push filter ".."'\\.lua.*:[0-9]+: ' to '.lua...\"]:<line>: '")
 engine = test_run:get_cfg('engine')
-box.execute('pragma sql_default_engine=\''..engine..'\'')
+box.execute('set sql_default_engine=\''..engine..'\'')
 
 --
 -- gh-3272: Move SQL CHECK into server
@@ -240,7 +240,7 @@ physics_ck:drop()
 -- :enable configurator.
 --
 engine = test_run:get_cfg('engine')
-box.execute('pragma sql_default_engine=\''..engine..'\'')
+box.execute('set sql_default_engine=\''..engine..'\'')
 box.execute("CREATE TABLE test(a INT PRIMARY KEY);");
 box.execute('ALTER TABLE test ADD CONSTRAINT CK CHECK(a < 5);')
 box.space.TEST:insert({10})

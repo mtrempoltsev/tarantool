@@ -4,7 +4,7 @@ test_run = require('test_run').new()
 engine = test_run:get_cfg('engine')
 ---
 ...
-box.execute('pragma sql_default_engine=\''..engine..'\'')
+box.execute('set sql_default_engine=\''..engine..'\'')
 ---
 - row_count: 0
 ...
@@ -314,13 +314,9 @@ box.execute("SELECT ROW_COUNT();")
   rows:
   - [0]
 ...
-box.execute('PRAGMA recursive_triggers')
+box.execute("SET sql_default_engine='"..engine.."';")
 ---
-- metadata:
-  - name: recursive_triggers
-    type: INTEGER
-  rows:
-  - [1]
+- row_count: 0
 ...
 -- Clean-up.
 --

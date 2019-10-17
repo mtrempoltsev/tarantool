@@ -413,7 +413,7 @@ box.cfg{
 }
 
 local engine = test_run and test_run:get_cfg('engine') or 'memtx'
-box.execute('pragma sql_default_engine=\''..engine..'\'')
+box.execute('set sql_default_engine=\''..engine..'\'')
 
 function test.engine(self)
     return engine

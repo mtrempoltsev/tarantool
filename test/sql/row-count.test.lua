@@ -1,6 +1,6 @@
 test_run = require('test_run').new()
 engine = test_run:get_cfg('engine')
-box.execute('pragma sql_default_engine=\''..engine..'\'')
+box.execute('set sql_default_engine=\''..engine..'\'')
 
 -- Test cases concerning row count calculations.
 --
@@ -65,7 +65,7 @@ box.execute("SELECT ROW_COUNT();")
 box.execute("SELECT ROW_COUNT();")
 box.execute("EXPLAIN QUERY PLAN INSERT INTO t1 VALUES ('b'), ('c'), ('d');")
 box.execute("SELECT ROW_COUNT();")
-box.execute('PRAGMA recursive_triggers')
+box.execute("SET sql_default_engine='"..engine.."';")
 
 -- Clean-up.
 --

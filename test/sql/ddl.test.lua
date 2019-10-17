@@ -1,7 +1,7 @@
 test_run = require('test_run').new()
 json = require('json')
 engine = test_run:get_cfg('engine')
-box.execute('pragma sql_default_engine=\''..engine..'\'')
+box.execute('set sql_default_engine=\''..engine..'\'')
 
 --
 -- gh-4086: SQL transactional DDL.

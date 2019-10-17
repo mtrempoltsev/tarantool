@@ -64,7 +64,7 @@ test:do_catchsql_test(
 
 test:do_execsql_test(
     "gh2548-select-compound-limit-3.1", [[
-        pragma sql_compound_select_limit
+        SELECT "value" FROM "_vsession_settings" WHERE "name" = 'sql_compound_select_limit'
     ]], {
         -- <gh2548-select-compound-limit-3.1>
         30
@@ -73,7 +73,8 @@ test:do_execsql_test(
 
 test:do_execsql_test(
     "gh2548-select-compound-limit-3.2", [[
-        pragma sql_compound_select_limit=31
+        SET sql_compound_select_limit = 31;
+        SELECT "value" FROM "_vsession_settings" WHERE "name" = 'sql_compound_select_limit'
     ]], {
         -- <gh2548-select-compound-limit-3.2>
         31
@@ -90,7 +91,8 @@ test:do_execsql_test(
 
 test:do_execsql_test(
     "gh2548-select-compound-limit-3.4", [[
-        pragma sql_compound_select_limit=0
+        SET sql_compound_select_limit = 0;
+        SELECT "value" FROM "_vsession_settings" WHERE "name" = 'sql_compound_select_limit';
     ]], {
         -- <gh2548-select-compound-limit-3.4>
         0
