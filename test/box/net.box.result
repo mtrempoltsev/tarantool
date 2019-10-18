@@ -3930,3 +3930,27 @@ test_run:grep_log('default', '00000040:.*')
 box.cfg{log_level=log_level}
 ---
 ...
+--
+-- gh-4513 netbox.connect returns table but netbox.self does not
+--
+space = box.schema.space.create('gh4513')
+---
+...
+box.schema.user.grant('guest','read, write, execute','universe')
+---
+...
+idx = box.space.gh4513:create_index('primary')
+---
+...
+box.space.gh4513:insert({1})
+---
+- [1]
+...
+type(remote.connect(box.cfg.listen):eval("return box.space.gh4513:get({1})"))
+---
+- table
+...
+type(remote.self:eval("return box.space.gh4513:get{1}"))
+---
+- table
+...

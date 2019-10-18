@@ -1518,7 +1518,16 @@ local function handle_eval_result(status, ...)
         rollback()
         return box.error(E_PROC_LUA, (...))
     end
-    return ...
+    if not ... then
+        return ...
+    end
+    local results = {...}
+    for n, res in pairs(results) do
+        if type(res) == 'cdata' and ffi.istype('struct tuple', res) then
+            results[n] = res:totable()
+        end
+    end
+    return unpack(results)
 end
 
 this_module.self = {
