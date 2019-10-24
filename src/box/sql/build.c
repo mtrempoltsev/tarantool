@@ -48,6 +48,7 @@
 #include "vdbeInt.h"
 #include "tarantoolInt.h"
 #include "box/box.h"
+#include "box/tuple.h"
 #include "box/ck_constraint.h"
 #include "box/fk_constraint.h"
 #include "box/sequence.h"
@@ -3240,5 +3241,162 @@ sql_fieldno_by_name(struct Parse *parse_context, struct Expr *field_name,
 		return -1;
 	}
 	*fieldno = i;
+	return 0;
+}
+
+/**
+ * Identifiers of all SQL options that can be viewed. The
+ * identifier of the option is equal to its place in the sorted
+ * list of options, which starts at 0.
+ *
+ * It is IMPORTANT that SQL options are sorted by name. If this is
+ * not the case, the result returned by the _vsession_settings
+ * space iterator will not be sorted properly.
+ */
+enum {
+	SQL_OPTION_COMPOUND_SELECT_LIMIT = 0,
+	SQL_OPTION_DEFAULT_ENGINE,
+	SQL_OPTION_DEFER_FOREIGN_KEYS,
+	SQL_OPTION_FULL_COLUMN_NAMES,
+#ifndef NDEBUG
+	SQL_OPTION_PARSER_TRACE,
+#endif
+	SQL_OPTION_RECURSIVE_TRIGGERS,
+	SQL_OPTION_REVERSE_UNORDERED_SELECTS,
+#ifndef NDEBUG
+	SQL_OPTION_SELECT_TRACE,
+	SQL_OPTION_TRACE,
+	SQL_OPTION_VDBE_ADDOPTRACE,
+	SQL_OPTION_VDBE_DEBUG,
+	SQL_OPTION_VDBE_EQP,
+	SQL_OPTION_VDBE_LISTING,
+	SQL_OPTION_VDBE_TRACE,
+	SQL_OPTION_WHERE_TRACE,
+#endif
+	SQL_OPTION_max,
+};
+
+/**
+ * A local structure that allows to establish a connection between
+ * the name of the parameter, its field type and mask, if it have
+ * one.
+ */
+struct sql_option_metadata
+{
+	const char *name;
+	uint32_t field_type;
+	uint32_t mask;
+};
+
+/**
+ * Variable that contains names of the SQL options, their field
+ * types and mask if they have one or 0 if don't have.
+ *
+ * It is IMPORTANT that these options sorted by name.
+ */
+static struct sql_option_metadata sql_options[] = {
+	/** SQL_OPTION_COMPOUND_SELECT_LIMIT */
+	{"sql_compound_select_limit", FIELD_TYPE_INTEGER, 0},
+	/** SQL_OPTION_DEFAULT_ENGINE */
+	{"sql_default_engine", FIELD_TYPE_STRING, 0},
+	/** SQL_OPTION_DEFER_FOREIGN_KEYS */
+	{"sql_defer_foreign_keys", FIELD_TYPE_BOOLEAN, SQL_DeferFKs},
+	/** SQL_OPTION_FULL_COLUMN_NAMES */
+	{"sql_full_column_names", FIELD_TYPE_BOOLEAN, SQL_FullColNames},
+#ifndef NDEBUG
+	/** SQL_OPTION_PARSER_TRACE */
+	{"sql_parser_trace", FIELD_TYPE_BOOLEAN, PARSER_TRACE_FLAG},
+#endif
+	/** SQL_OPTION_RECURSIVE_TRIGGERS */
+	{"sql_recursive_triggers", FIELD_TYPE_BOOLEAN, SQL_RecTriggers},
+	/** SQL_OPTION_REVERSE_UNORDERED_SELECTS */
+	{"sql_reverse_unordered_selects", FIELD_TYPE_BOOLEAN, SQL_ReverseOrder},
+#ifndef NDEBUG
+	/** SQL_OPTION_SELECT_TRACE */
+	{"sql_select_trace", FIELD_TYPE_BOOLEAN, SQL_SelectTrace},
+	/** SQL_OPTION_TRACE */
+	{"sql_trace", FIELD_TYPE_BOOLEAN, SQL_SqlTrace},
+	/** SQL_OPTION_VDBE_ADDOPTRACE */
+	{"sql_vdbe_addoptrace", FIELD_TYPE_BOOLEAN, SQL_VdbeAddopTrace},
+	/** SQL_OPTION_VDBE_DEBUG */
+	{"sql_vdbe_debug", FIELD_TYPE_BOOLEAN,
+	 SQL_SqlTrace | SQL_VdbeListing | SQL_VdbeTrace},
+	/** SQL_OPTION_VDBE_EQP */
+	{"sql_vdbe_eqp", FIELD_TYPE_BOOLEAN, SQL_VdbeEQP},
+	/** SQL_OPTION_VDBE_LISTING */
+	{"sql_vdbe_listing", FIELD_TYPE_BOOLEAN, SQL_VdbeListing},
+	/** SQL_OPTION_VDBE_TRACE */
+	{"sql_vdbe_trace", FIELD_TYPE_BOOLEAN, SQL_VdbeTrace},
+	/** SQL_OPTION_WHERE_TRACE */
+	{"sql_where_trace", FIELD_TYPE_BOOLEAN, SQL_WhereTrace},
+#endif
+};
+
+uint32_t
+sql_option_id_max()
+{
+	return SQL_OPTION_max;
+}
+
+int
+sql_option_id_by_name(const char *name)
+{
+	for (uint32_t id = 0; id < SQL_OPTION_max; ++id) {
+		if (strcmp(name, sql_options[id].name) == 0)
+			return id;
+	}
+	return SQL_OPTION_max;
+}
+
+int
+sql_option_tuple(struct tuple_format *format, int option_id,
+		 struct tuple **result)
+{
+	if (option_id < 0 || option_id >= SQL_OPTION_max) {
+		*result = NULL;
+		return 0;
+	}
+	int limit = 0;
+	const char *engine = NULL;
+	struct region *region = &fiber()->gc;
+	struct session *session = current_session();
+	uint32_t flags = session->sql_flags;
+	uint32_t mask = sql_options[option_id].mask;
+	/* Tuple format contains two fields - name and value. */
+	uint32_t column_count = format->min_field_count;
+	assert(column_count == 2);
+	size_t size = mp_sizeof_array(column_count) +
+		      mp_sizeof_str(strlen(sql_options[option_id].name));
+	if (sql_options[option_id].field_type == FIELD_TYPE_BOOLEAN) {
+		size += mp_sizeof_bool(true);
+	} else if (option_id == SQL_OPTION_DEFAULT_ENGINE) {
+		engine = sql_storage_engine_strs[session->sql_default_engine];
+		size += mp_sizeof_str(strlen(engine));
+	} else {
+		assert(option_id == SQL_OPTION_COMPOUND_SELECT_LIMIT);
+		limit = sql_get()->aLimit[SQL_LIMIT_COMPOUND_SELECT];
+		size += mp_sizeof_uint(limit);
+	}
+
+	size_t svp = region_used(region);
+	char *pos_ret = region_alloc(region, size);
+	if (pos_ret == NULL) {
+		diag_set(OutOfMemory, size, "region_alloc", "pos_ret");
+		return -1;
+	}
+	char *pos = mp_encode_array(pos_ret, column_count);
+	pos = mp_encode_str(pos, sql_options[option_id].name,
+			    strlen(sql_options[option_id].name));
+	if (sql_options[option_id].field_type == FIELD_TYPE_BOOLEAN)
+		pos = mp_encode_bool(pos, (flags & mask) == mask);
+	else if (option_id == SQL_OPTION_DEFAULT_ENGINE)
+		pos = mp_encode_str(pos, engine, strlen(engine));
+	else
+		pos = mp_encode_uint(pos, limit);
+	struct tuple *tuple = tuple_new(format, pos_ret, pos_ret + size);
+	region_truncate(region, svp);
+	if (tuple == NULL)
+		return -1;
+	*result = tuple;
 	return 0;
 }

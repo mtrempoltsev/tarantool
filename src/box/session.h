@@ -36,12 +36,15 @@
 #include "fiber.h"
 #include "user.h"
 #include "authentication.h"
+#include "iterator_type.h"
 
 #if defined(__cplusplus)
 extern "C" {
 #endif /* defined(__cplusplus) */
 
 struct port;
+struct index;
+struct tuple;
 struct session_vtab;
 
 void
@@ -354,6 +357,16 @@ generic_session_fd(struct session *session);
 /** Return 0 from any session. */
 int64_t
 generic_session_sync(struct session *session);
+
+/** Method get() for _vsession_settings sysview. */
+int
+session_options_get(struct index *index, const char *key, uint32_t part_count,
+		    struct tuple **result);
+
+/** Method create_iterator() for _vsession_settings sysview. */
+struct iterator *
+session_options_create_iterator(struct index *index, enum iterator_type type,
+				const char *key, uint32_t part_count);
 
 #if defined(__cplusplus)
 } /* extern "C" */

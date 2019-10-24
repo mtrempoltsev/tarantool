@@ -411,7 +411,7 @@ vsequence_filter(struct space *source, struct tuple *tuple)
 }
 
 static bool
-vcollation_filter(struct space *source, struct tuple *tuple)
+generic_filter(struct space *source, struct tuple *tuple)
 {
 	(void) source;
 	(void) tuple;
@@ -481,9 +481,16 @@ sysview_space_create_index(struct space *space, struct index_def *def)
 	case BOX_VCOLLATION_ID:
 		source_space_id = BOX_COLLATION_ID;
 		source_index_id = def->iid;
-		filter = vcollation_filter;
+		filter = generic_filter;
 		get = index_get;
 		create_iterator = index_create_iterator;
+		break;
+	case BOX_VSESSION_SETTINGS_ID:
+		source_space_id = BOX_VSESSION_SETTINGS_ID;
+		source_index_id = def->iid;
+		filter = generic_filter;
+		get = session_options_get;
+		create_iterator = session_options_create_iterator;
 		break;
 	default:
 		diag_set(ClientError, ER_MODIFY_INDEX,
@@ -569,9 +576,10 @@ sysview_engine_create_space(struct engine *engine, struct space_def *def,
 		return NULL;
 	}
 	struct tuple_format *format =
-		tuple_format_new(NULL, NULL, keys, key_count, def->fields,
-				 def->field_count, def->exact_field_count,
-				 def->dict, def->opts.is_temporary,
+		tuple_format_new(&tuple_format_runtime->vtab, NULL, keys,
+				 key_count, def->fields, def->field_count,
+				 def->exact_field_count, def->dict,
+				 def->opts.is_temporary,
 				 def->opts.is_ephemeral);
 	if (format == NULL) {
 		free(space);

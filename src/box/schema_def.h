@@ -114,6 +114,8 @@ enum {
 	BOX_CK_CONSTRAINT_ID = 364,
 	/** Space id of _func_index. */
 	BOX_FUNC_INDEX_ID = 372,
+	/** Space id of _vsession_settings. */
+	BOX_VSESSION_SETTINGS_ID = 381,
 	/** End of the reserved range of system spaces. */
 	BOX_SYSTEM_ID_MAX = 511,
 	BOX_ID_NIL = 2147483647

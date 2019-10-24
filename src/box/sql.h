@@ -70,6 +70,7 @@ struct Select;
 struct Table;
 struct sql_trigger;
 struct space_def;
+struct tuple_format;
 
 /**
  * Perform parsing of provided expression. This is done by
@@ -419,6 +420,39 @@ vdbe_field_ref_prepare_data(struct vdbe_field_ref *field_ref, const char *data,
 void
 vdbe_field_ref_prepare_tuple(struct vdbe_field_ref *field_ref,
 			     struct tuple *tuple);
+
+/**
+ * Return the next number after the last SQL option.
+ *
+ * @retval Next number after the last SQL option.
+ */
+uint32_t
+sql_option_id_max();
+
+/**
+ * Return the SQL option ID with the given name. If there is no
+ * option with this name, a number is returned that is equal to
+ * the one returned by sql_option_id_max().
+ *
+ * @param name The name of the option.
+ * @retval Option ID.
+ */
+int
+sql_option_id_by_name(const char *name);
+
+/**
+ * Create a tuple that contains the name and value of the SQL
+ * option.
+ *
+ * @param format Format of the tuple.
+ * @param option_id ID of SQL option.
+ * @param[out] result New tuple or NULL.
+ * @retval 0 On success.
+ * @retval < 0 On error.
+ */
+int
+sql_option_tuple(struct tuple_format *format, int option_id,
+		 struct tuple **result);
 
 #if defined(__cplusplus)
 } /* extern "C" { */

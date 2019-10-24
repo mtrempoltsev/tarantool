@@ -1330,3 +1330,124 @@ test_run:grep_log('default', 'test log')
 ---
 - test log
 ...
+--
+-- gh-4511: make sure that _vsession_settings sysview works as
+-- intended.
+--
+v = box.space._vsession_settings
+---
+...
+option_count = v:count()
+---
+...
+v:format()
+---
+- [{'name': 'name', 'type': 'string'}, {'name': 'value', 'type': 'any'}]
+...
+(#v:select()) == option_count
+---
+- true
+...
+(#v:select({}, {iterator = 'ALL'})) == option_count
+---
+- true
+...
+(#v:select({}, {iterator = 'REQ'})) == option_count
+---
+- true
+...
+(#v:select({}, {iterator = 'EQ'})) == option_count
+---
+- true
+...
+(#v:select({}, {iterator = 'GE'})) == option_count
+---
+- true
+...
+(#v:select({}, {iterator = 'GT'})) == option_count
+---
+- true
+...
+(#v:select({}, {iterator = 'LE'})) == option_count
+---
+- true
+...
+(#v:select({}, {iterator = 'LT'})) == option_count
+---
+- true
+...
+(#v:select({'abcde'}, {iterator = 'ALL'})) == 0
+---
+- true
+...
+(#v:select({'abcde'}, {iterator = 'REQ'})) == 0
+---
+- true
+...
+(#v:select({'abcde'}, {iterator = 'EQ'})) == 0
+---
+- true
+...
+(#v:select({'abcde'}, {iterator = 'GE'})) == 0
+---
+- true
+...
+(#v:select({'abcde'}, {iterator = 'GT'})) == 0
+---
+- true
+...
+(#v:select({'abcde'}, {iterator = 'LE'})) == option_count
+---
+- true
+...
+(#v:select({'abcde'}, {iterator = 'LT'})) == option_count
+---
+- true
+...
+v:select({'sql_defer_foreign_keys'})
+---
+- - ['sql_defer_foreign_keys', false]
+...
+v:select({'sql_recursive_triggers'})
+---
+- - ['sql_recursive_triggers', true]
+...
+v:select({'sql_reverse_unordered_selects'})
+---
+- - ['sql_reverse_unordered_selects', false]
+...
+v:select({'sql_compound_select_limit'})
+---
+- - ['sql_compound_select_limit', 30]
+...
+v:select({'sql_default_engine'})
+---
+- - ['sql_default_engine', 'memtx']
+...
+new_record = v:frommap({name='abs', value=123})
+---
+...
+v:insert(new_record)
+---
+- error: View '_vsession_settings' is read-only
+...
+t = {}
+---
+...
+for k, v in box.space._vsession_settings:pairs() do table.insert(t, {k, v}) end
+---
+...
+#t == option_count
+---
+- true
+...
+box.execute([[SELECT * from "_vsession_settings" WHERE "name" = 'sql_default_engine']])
+---
+- metadata:
+  - name: name
+    type: string
+  - name: value
+    type: any
+  rows:
+  - ['sql_default_engine', 'memtx']
+...

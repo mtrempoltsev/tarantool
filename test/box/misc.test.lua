@@ -383,3 +383,45 @@ tuple_format = box.internal.new_tuple_format(format)
 box.cfg{}
 local ffi = require'ffi' ffi.C._say(ffi.C.S_WARN, nil, 0, nil, "%s", "test log")
 test_run:grep_log('default', 'test log')
+
+--
+-- gh-4511: make sure that _vsession_settings sysview works as
+-- intended.
+--
+
+v = box.space._vsession_settings
+option_count = v:count()
+
+v:format()
+
+(#v:select()) == option_count
+(#v:select({}, {iterator = 'ALL'})) == option_count
+(#v:select({}, {iterator = 'REQ'})) == option_count
+(#v:select({}, {iterator = 'EQ'})) == option_count
+(#v:select({}, {iterator = 'GE'})) == option_count
+(#v:select({}, {iterator = 'GT'})) == option_count
+(#v:select({}, {iterator = 'LE'})) == option_count
+(#v:select({}, {iterator = 'LT'})) == option_count
+
+(#v:select({'abcde'}, {iterator = 'ALL'})) == 0
+(#v:select({'abcde'}, {iterator = 'REQ'})) == 0
+(#v:select({'abcde'}, {iterator = 'EQ'})) == 0
+(#v:select({'abcde'}, {iterator = 'GE'})) == 0
+(#v:select({'abcde'}, {iterator = 'GT'})) == 0
+(#v:select({'abcde'}, {iterator = 'LE'})) == option_count
+(#v:select({'abcde'}, {iterator = 'LT'})) == option_count
+
+v:select({'sql_defer_foreign_keys'})
+v:select({'sql_recursive_triggers'})
+v:select({'sql_reverse_unordered_selects'})
+v:select({'sql_compound_select_limit'})
+v:select({'sql_default_engine'})
+
+new_record = v:frommap({name='abs', value=123})
+v:insert(new_record)
+
+t = {}
+for k, v in box.space._vsession_settings:pairs() do table.insert(t, {k, v}) end
+#t == option_count
+
+box.execute([[SELECT * from "_vsession_settings" WHERE "name" = 'sql_default_engine']])

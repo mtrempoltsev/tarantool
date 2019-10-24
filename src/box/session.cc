@@ -36,6 +36,9 @@
 #include "user.h"
 #include "error.h"
 #include "tt_static.h"
+#include "index.h"
+#include "schema.h"
+#include "sql.h"
 
 const char *session_type_strs[] = {
 	"background",
@@ -359,4 +362,117 @@ generic_session_sync(struct session *session)
 {
 	(void) session;
 	return 0;
+}
+
+int
+session_options_get(struct index *index, const char *key, uint32_t part_count,
+		    struct tuple **result)
+{
+	assert(part_count == 1);
+	(void)part_count;
+	struct space *space = space_cache_find(index->def->space_id);
+	uint32_t len;
+	const char *name = mp_decode_str(&key, &len);
+	name = tt_cstr(name, len);
+	/*
+	 * Currently, the only session local options are SQL
+	 * options.
+	 */
+	uint32_t sql_option_id = sql_option_id_by_name(name);
+	return sql_option_tuple(space->format, sql_option_id, result);
+}
+
+/**
+ * An iterator that iterates over current session options.
+ */
+struct session_options_iterator {
+	/** Base iterator. Must be the first member. */
+	struct iterator base;
+	/** Format of the tuples this iterator returns. */
+	struct tuple_format *format;
+	/** Id of SQL option this iterator should return. */
+	uint32_t sql_option_id;
+	/**
+	 * The number of tuples left to show. If we did not get
+	 * the key when creating the iterator, then the value of
+	 * the field is < 0. Otherwise, it should be either 1 or 0
+	 * in the normal case.
+	 */
+	int max_tuples_to_show;
+};
+
+static int
+session_options_iterator_next(struct iterator *itr, struct tuple **ret)
+{
+	struct session_options_iterator *it =
+		(struct session_options_iterator *)itr;
+	if (it->max_tuples_to_show == 0) {
+		*ret = NULL;
+		return 0;
+	}
+	if (it->max_tuples_to_show > 0)
+		it->max_tuples_to_show--;
+	return sql_option_tuple(it->format, it->sql_option_id++, ret);
+}
+
+static int
+session_options_iterator_prev(struct iterator *itr, struct tuple **ret)
+{
+	struct session_options_iterator *it =
+		(struct session_options_iterator *)itr;
+	if (it->max_tuples_to_show == 0) {
+		*ret = NULL;
+		return 0;
+	} else if (it->max_tuples_to_show > 0) {
+		it->max_tuples_to_show--;
+	}
+	return sql_option_tuple(it->format, it->sql_option_id--, ret);
+}
+
+static void
+session_options_iterator_free(struct iterator *itr)
+{
+	free(itr);
+}
+
+struct iterator *
+session_options_create_iterator(struct index *index, enum iterator_type type,
+				const char *key, uint32_t part_count)
+{
+	int max_tuples_to_show = -1;
+	uint32_t sql_option_id;
+	if (part_count > 0) {
+		assert(part_count == 1);
+		uint32_t len;
+		const char *name = mp_decode_str(&key, &len);
+		name = tt_cstr(name, len);
+		sql_option_id = sql_option_id_by_name(name);
+		if (type == ITER_EQ || type == ITER_REQ)
+			max_tuples_to_show = 1;
+		else if (type == ITER_LT)
+			--sql_option_id;
+		else if (type == ITER_GT)
+			++sql_option_id;
+		if (sql_option_id == sql_option_id_max() && type == ITER_LE)
+			--sql_option_id;
+	} else {
+		sql_option_id = iterator_type_is_reverse(type) ?
+				sql_option_id_max() - 1 : 0;
+	}
+	struct space *space = space_cache_find(index->def->space_id);
+	struct session_options_iterator *it =
+		(session_options_iterator *)malloc(sizeof(*it));
+	if (it == NULL) {
+		diag_set(OutOfMemory, sizeof(*it), "malloc", "it");
+		return NULL;
+	}
+	iterator_create(&it->base, index);
+	it->base.next = iterator_type_is_reverse(type) ?
+			session_options_iterator_prev :
+			session_options_iterator_next;
+	it->base.free = session_options_iterator_free;
+	it->sql_option_id = sql_option_id;
+	it->max_tuples_to_show = max_tuples_to_show;
+	it->format = space->format;
+	return (struct iterator *)it;
 }

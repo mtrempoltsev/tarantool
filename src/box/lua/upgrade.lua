@@ -943,6 +943,28 @@ local function upgrade_to_2_3_0()
 end
 
 --------------------------------------------------------------------------------
+-- Tarantool 2.3.1
+--------------------------------------------------------------------------------
+
+local function create_vsession_settings_sysview()
+    local _space = box.space[box.schema.SPACE_ID]
+    local _index = box.space[box.schema.INDEX_ID]
+    local format = {}
+    format[1] = {name='name', type='string'}
+    format[2] = {name='value', type='any'}
+    log.info("create space _vsession_settings")
+    _space:insert{box.schema.VSESSION_SETTINGS_ID, ADMIN, '_vsession_settings',
+                  'sysview', 0, setmap({}), format}
+    log.info("create index _vsession_settings:primary")
+    _index:insert{box.schema.VSESSION_SETTINGS_ID, 0, 'primary', 'tree',
+                  {unique = true}, {{0, 'string'}}}
+end
+
+local function upgrade_to_2_3_1()
+    create_vsession_settings_sysview()
+end
+
+--------------------------------------------------------------------------------
 
 local function get_version()
     local version = box.space._schema:get{'version'}
@@ -977,6 +999,7 @@ local function upgrade(options)
         {version = mkversion(2, 1, 3), func = upgrade_to_2_1_3, auto = true},
         {version = mkversion(2, 2, 1), func = upgrade_to_2_2_1, auto = true},
         {version = mkversion(2, 3, 0), func = upgrade_to_2_3_0, auto = true},
+        {version = mkversion(2, 3, 1), func = upgrade_to_2_3_1, auto = true},
     }
 
     for _, handler in ipairs(handlers) do
