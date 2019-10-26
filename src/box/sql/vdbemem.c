@@ -740,7 +740,13 @@ sqlVdbeMemCast(Mem * pMem, enum field_type type)
 			return -1;
 		return 0;
 	case FIELD_TYPE_NUMBER:
-		return sqlVdbeMemRealify(pMem);
+		if ((pMem->flags & (MEM_Real | MEM_Int | MEM_UInt)) != 0)
+			return 0;
+		if (pMem->flags & MEM_Str) {
+			if (sqlAtoF(pMem->z, &pMem->u.r, pMem->n))
+				return 0;
+		}
+		return -1;
 	case FIELD_TYPE_VARBINARY:
 		if ((pMem->flags & MEM_Blob) != 0)
 			return 0;
@@ -1818,26 +1824,12 @@ mpstream_encode_vdbe_mem(struct mpstream *stream, struct Mem *var)
 	if (var->flags & MEM_Null) {
 		mpstream_encode_nil(stream);
 	} else if (var->flags & MEM_Real) {
-		/*
-		 * We can't pass to INT iterator float
-		 * value. Hence, if floating point value
-		 * lacks fractional component, we can
-		 * encode it as INT and successfully
-		 * pass to INT iterator.
-		 */
-		i = var->u.r;
-		if (i == var->u.r && i < 0)
-			goto encode_int;
-		if (i == var->u.r && i >= 0)
-			goto encode_uint;
 		mpstream_encode_double(stream, var->u.r);
 	} else if (var->flags & MEM_Int) {
 		i = var->u.i;
-encode_int:
 		mpstream_encode_int(stream, i);
 	} else if (var->flags & MEM_UInt) {
 		i = var->u.u;
-encode_uint:
 		mpstream_encode_uint(stream, i);
 	} else if (var->flags & MEM_Str) {
 		mpstream_encode_strn(stream, var->z, var->n);

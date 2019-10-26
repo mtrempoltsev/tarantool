@@ -321,13 +321,8 @@ mem_apply_type(struct Mem *record, enum field_type type)
 	case FIELD_TYPE_UNSIGNED:
 		if ((record->flags & MEM_UInt) == MEM_UInt)
 			return 0;
-		if ((record->flags & MEM_Real) == MEM_Real) {
-			int64_t i = (int64_t) record->u.r;
-			if (i == record->u.r)
-				mem_set_int(record, record->u.r,
-					    record->u.r <= -1);
-			return 0;
-		}
+		if ((record->flags & MEM_Real) == MEM_Real)
+			return -1;
 		if (sqlVdbeMemIntegerify(record, false) != 0)
 			return -1;
 		if ((record->flags & MEM_Int) == MEM_Int) {
@@ -1586,7 +1581,6 @@ case OP_Subtract:              /* same as TK_MINUS, in1, in2, out3 */
 case OP_Multiply:              /* same as TK_STAR, in1, in2, out3 */
 case OP_Divide:                /* same as TK_SLASH, in1, in2, out3 */
 case OP_Remainder: {           /* same as TK_REM, in1, in2, out3 */
-	char bIntint;   /* Started out as two integer operands */
 	u32 flags;      /* Combined MEM_* flags from both inputs */
 	u16 type1;      /* Numeric type of left operand */
 	u16 type2;      /* Numeric type of right operand */
@@ -1609,7 +1603,6 @@ case OP_Remainder: {           /* same as TK_REM, in1, in2, out3 */
 		bool is_lhs_neg = pIn1->flags & MEM_Int;
 		bool is_rhs_neg = pIn2->flags & MEM_Int;
 		bool is_res_neg;
-		bIntint = 1;
 		switch( pOp->opcode) {
 		case OP_Add: {
 			if (sql_add_int(iA, is_lhs_neg, iB, is_rhs_neg,
@@ -1648,8 +1641,9 @@ case OP_Remainder: {           /* same as TK_REM, in1, in2, out3 */
 		}
 		}
 		mem_set_int(pOut, iB, is_res_neg);
+		pOut->field_type = is_res_neg ? FIELD_TYPE_INTEGER :
+						FIELD_TYPE_UNSIGNED;
 	} else {
-		bIntint = 0;
 		if (sqlVdbeRealValue(pIn1, &rA) != 0) {
 			diag_set(ClientError, ER_SQL_TYPE_MISMATCH,
 				 sql_value_to_diag_str(pIn1), "numeric");
@@ -1660,6 +1654,7 @@ case OP_Remainder: {           /* same as TK_REM, in1, in2, out3 */
 				 sql_value_to_diag_str(pIn2), "numeric");
 			goto abort_due_to_error;
 		}
+		assert(((type1 | type2) & MEM_Real) !=0);
 		switch( pOp->opcode) {
 		case OP_Add:         rB += rA;       break;
 		case OP_Subtract:    rB -= rA;       break;
@@ -1685,9 +1680,7 @@ case OP_Remainder: {           /* same as TK_REM, in1, in2, out3 */
 		}
 		pOut->u.r = rB;
 		MemSetTypeFlag(pOut, MEM_Real);
-		if (((type1|type2)&MEM_Real)==0 && !bIntint) {
-			mem_apply_integer_type(pOut);
-		}
+		pOut->field_type = FIELD_TYPE_NUMBER;
 	}
 	break;
 
@@ -2745,14 +2738,6 @@ case OP_Column: {
 	    (uint32_t) p2  >= pC->field_ref.field_count &&
 	    default_val_mem != NULL) {
 		sqlVdbeMemShallowCopy(pDest, default_val_mem, MEM_Static);
-	}
-	if ((pDest->flags & (MEM_Int | MEM_UInt)) != 0) {
-		if (field_type == FIELD_TYPE_NUMBER) {
-			if ((pDest->flags & MEM_Int) != 0)
-				sqlVdbeMemSetDouble(pDest, pDest->u.i);
-			else
-				sqlVdbeMemSetDouble(pDest, pDest->u.u);
-		}
 	}
 	pDest->field_type = field_type;
 op_column_out:
