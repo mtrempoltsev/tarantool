@@ -3339,13 +3339,10 @@ sql_option_id_max()
 }
 
 int
-sql_option_id_by_name(const char *name)
+sql_option_compare(const char *name, uint32_t id)
 {
-	for (uint32_t id = 0; id < SQL_OPTION_max; ++id) {
-		if (strcmp(name, sql_options[id].name) == 0)
-			return id;
-	}
-	return SQL_OPTION_max;
+	assert(id < SQL_OPTION_max);
+	return strcmp(sql_options[id].name, name);
 }
 
 int

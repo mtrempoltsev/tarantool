@@ -392,6 +392,14 @@ test_run:grep_log('default', 'test log')
 v = box.space._vsession_settings
 option_count = v:count()
 
+-- TODO: Test sorting andevething else using aditional space.
+-- s = box.schema.space.create('settings', {format = v:format()})
+-- for _,v in v:pairs() do s:insert(v) end
+
+-- TODO: Found out why:
+-- box.space._vsession_settings:get({'sql_trace'}) !=
+-- box.space._vsession_settings:get({'sql_trace'})
+
 v:format()
 
 (#v:select()) == option_count
@@ -403,13 +411,13 @@ v:format()
 (#v:select({}, {iterator = 'LE'})) == option_count
 (#v:select({}, {iterator = 'LT'})) == option_count
 
-(#v:select({'abcde'}, {iterator = 'ALL'})) == 0
+(#v:select({'abcde'}, {iterator = 'ALL'})) == option_count
 (#v:select({'abcde'}, {iterator = 'REQ'})) == 0
 (#v:select({'abcde'}, {iterator = 'EQ'})) == 0
-(#v:select({'abcde'}, {iterator = 'GE'})) == 0
-(#v:select({'abcde'}, {iterator = 'GT'})) == 0
-(#v:select({'abcde'}, {iterator = 'LE'})) == option_count
-(#v:select({'abcde'}, {iterator = 'LT'})) == option_count
+(#v:select({'abcde'}, {iterator = 'GE'})) == option_count
+(#v:select({'abcde'}, {iterator = 'GT'})) == option_count
+(#v:select({'abcde'}, {iterator = 'LE'})) == 0
+(#v:select({'abcde'}, {iterator = 'LT'})) == 0
 
 v:select({'sql_defer_foreign_keys'})
 v:select({'sql_recursive_triggers'})

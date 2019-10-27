@@ -378,8 +378,12 @@ session_options_get(struct index *index, const char *key, uint32_t part_count,
 	 * Currently, the only session local options are SQL
 	 * options.
 	 */
-	uint32_t sql_option_id = sql_option_id_by_name(name);
-	return sql_option_tuple(space->format, sql_option_id, result);
+	for (uint32_t id = 0; id < sql_option_id_max(); ++id) {
+		if (sql_option_compare(name, id) == 0)
+			return sql_option_tuple(space->format, id, result);
+	}
+	*result = NULL;
+	return 0;
 }
 
 /**
@@ -390,15 +394,17 @@ struct session_options_iterator {
 	struct iterator base;
 	/** Format of the tuples this iterator returns. */
 	struct tuple_format *format;
+
+
+
 	/** Id of SQL option this iterator should return. */
-	uint32_t sql_option_id;
-	/**
-	 * The number of tuples left to show. If we did not get
-	 * the key when creating the iterator, then the value of
-	 * the field is < 0. Otherwise, it should be either 1 or 0
-	 * in the normal case.
-	 */
-	int max_tuples_to_show;
+	uint32_t option_counter;
+
+
+	char *option_name;
+
+
+	enum iterator_type iterator_type;
 };
 
 static int
@@ -406,13 +412,25 @@ session_options_iterator_next(struct iterator *itr, struct tuple **ret)
 {
 	struct session_options_iterator *it =
 		(struct session_options_iterator *)itr;
-	if (it->max_tuples_to_show == 0) {
-		*ret = NULL;
-		return 0;
+	uint32_t id_max = sql_option_id_max();
+	if (it->option_name == NULL)
+		return sql_option_tuple(it->format, it->option_counter++, ret);
+	for (; it->option_counter < id_max; ++it->option_counter) {
+		uint32_t id = it->option_counter;
+		int compare = sql_option_compare(it->option_name, id);
+		if (compare == 0 && (it->iterator_type == ITER_EQ ||
+				     it->iterator_type == ITER_GE ||
+				     it->iterator_type == ITER_ALL))
+			break;
+		if (compare > 0 && (it->iterator_type == ITER_GT ||
+				    it->iterator_type == ITER_GE ||
+				    it->iterator_type == ITER_ALL))
+			break;
 	}
-	if (it->max_tuples_to_show > 0)
-		it->max_tuples_to_show--;
-	return sql_option_tuple(it->format, it->sql_option_id++, ret);
+	if (it->option_counter < id_max)
+		return sql_option_tuple(it->format, it->option_counter++, ret);
+	*ret = NULL;
+	return 0;
 }
 
 static int
@@ -420,44 +438,49 @@ session_options_iterator_prev(struct iterator *itr, struct tuple **ret)
 {
 	struct session_options_iterator *it =
 		(struct session_options_iterator *)itr;
-	if (it->max_tuples_to_show == 0) {
-		*ret = NULL;
-		return 0;
-	} else if (it->max_tuples_to_show > 0) {
-		it->max_tuples_to_show--;
+	uint32_t id_max = sql_option_id_max();
+	if (it->option_name == NULL)
+		return sql_option_tuple(it->format, id_max - 1 -
+					it->option_counter++, ret);
+	for (; it->option_counter < id_max; ++it->option_counter) {
+		uint32_t id = id_max - it->option_counter - 1;
+		int compare = sql_option_compare(it->option_name, id);
+		if (compare == 0 && (it->iterator_type == ITER_REQ ||
+				     it->iterator_type == ITER_LE))
+			break;
+		if (compare < 0 && (it->iterator_type == ITER_LT ||
+				    it->iterator_type == ITER_LE))
+			break;
 	}
-	return sql_option_tuple(it->format, it->sql_option_id--, ret);
+	if (it->option_counter < id_max)
+		return sql_option_tuple(it->format, id_max - 1 -
+					it->option_counter++, ret);
+	*ret = NULL;
+	return 0;
 }
 
 static void
 session_options_iterator_free(struct iterator *itr)
 {
-	free(itr);
+	struct session_options_iterator *it =
+		(struct session_options_iterator *)itr;
+	free(it->option_name);
+	free(it);
 }
 
 struct iterator *
 session_options_create_iterator(struct index *index, enum iterator_type type,
 				const char *key, uint32_t part_count)
 {
-	int max_tuples_to_show = -1;
-	uint32_t sql_option_id;
+	char *option_name = NULL;
 	if (part_count > 0) {
 		assert(part_count == 1);
+		assert(mp_typeof(*key) == MP_STR);
 		uint32_t len;
 		const char *name = mp_decode_str(&key, &len);
 		name = tt_cstr(name, len);
-		sql_option_id = sql_option_id_by_name(name);
-		if (type == ITER_EQ || type == ITER_REQ)
-			max_tuples_to_show = 1;
-		else if (type == ITER_LT)
-			--sql_option_id;
-		else if (type == ITER_GT)
-			++sql_option_id;
-		if (sql_option_id == sql_option_id_max() && type == ITER_LE)
-			--sql_option_id;
-	} else {
-		sql_option_id = iterator_type_is_reverse(type) ?
-				sql_option_id_max() - 1 : 0;
+		option_name = (char *)malloc(len + 1);
+		memcpy(option_name, name, len + 1);
 	}
 	struct space *space = space_cache_find(index->def->space_id);
 	struct session_options_iterator *it =
@@ -471,8 +494,9 @@ session_options_create_iterator(struct index *index, enum iterator_type type,
 			session_options_iterator_prev :
 			session_options_iterator_next;
 	it->base.free = session_options_iterator_free;
-	it->sql_option_id = sql_option_id;
-	it->max_tuples_to_show = max_tuples_to_show;
+	it->option_name = option_name;
+	it->iterator_type = type;
 	it->format = space->format;
+	it->option_counter = 0;
 	return (struct iterator *)it;
 }

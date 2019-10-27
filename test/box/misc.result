@@ -1340,6 +1340,12 @@ v = box.space._vsession_settings
 option_count = v:count()
 ---
 ...
+-- TODO: Test sorting andevething else using aditional space.
+-- s = box.schema.space.create('settings', {format = v:format()})
+-- for _,v in v:pairs() do s:insert(v) end
+-- TODO: Found out why:
+-- box.space._vsession_settings:get({'sql_trace'}) !=
+-- box.space._vsession_settings:get({'sql_trace'})
 v:format()
 ---
 - [{'name': 'name', 'type': 'string'}, {'name': 'value', 'type': 'any'}]
@@ -1376,7 +1382,7 @@ v:format()
 ---
 - true
 ...
-(#v:select({'abcde'}, {iterator = 'ALL'})) == 0
+(#v:select({'abcde'}, {iterator = 'ALL'})) == option_count
 ---
 - true
 ...
@@ -1388,19 +1394,19 @@ v:format()
 ---
 - true
 ...
-(#v:select({'abcde'}, {iterator = 'GE'})) == 0
+(#v:select({'abcde'}, {iterator = 'GE'})) == option_count
 ---
 - true
 ...
-(#v:select({'abcde'}, {iterator = 'GT'})) == 0
+(#v:select({'abcde'}, {iterator = 'GT'})) == option_count
 ---
 - true
 ...
-(#v:select({'abcde'}, {iterator = 'LE'})) == option_count
+(#v:select({'abcde'}, {iterator = 'LE'})) == 0
 ---
 - true
 ...
-(#v:select({'abcde'}, {iterator = 'LT'})) == option_count
+(#v:select({'abcde'}, {iterator = 'LT'})) == 0
 ---
 - true
 ...

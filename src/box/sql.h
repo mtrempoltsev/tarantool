@@ -438,7 +438,7 @@ sql_option_id_max();
  * @retval Option ID.
  */
 int
-sql_option_id_by_name(const char *name);
+sql_option_compare(const char *name, uint32_t id);
 
 /**
  * Create a tuple that contains the name and value of the SQL
