@@ -459,6 +459,20 @@ fiber_join(struct fiber *fiber)
 }
 
 /**
+ * The LuaJIT is not always available in tests and libs for core
+ * hence making a weakref symbol to substitute the real interface
+ **/
+
+bool
+luaT_VMinGC() __attribute__((weak));
+
+bool
+luaT_VMinGC()
+{
+        return false;
+}
+
+/**
  * @note: this is not a cancellation point (@sa fiber_testcancel())
  * but it is considered good practice to call testcancel()
  * after each yield.
@@ -466,6 +480,7 @@ fiber_join(struct fiber *fiber)
 void
 fiber_yield(void)
 {
+        if (luaT_VMinGC()) return;
 	struct cord *cord = cord();
 	struct fiber *caller = cord->fiber;
 	struct fiber *callee = caller->caller;

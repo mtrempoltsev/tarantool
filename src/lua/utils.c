@@ -1153,6 +1153,12 @@ luaT_state(void)
 	return tarantool_L;
 }
 
+bool
+luaT_VMinGC(void) 
+{
+        return G(luaT_state())->vmstate == ~LJ_VMST_GC;
+}
+
 /* {{{ Helper functions to interact with a Lua iterator from C */
 
 struct luaL_iterator {

@@ -428,6 +428,7 @@ luaL_register_module(struct lua_State *L, const char *modname,
 
 /** \cond public */
 
+
 /**
  * Push uint64_t onto the stack
  *
@@ -497,6 +498,12 @@ luaT_cpcall(lua_State *L, lua_CFunction func, void *ud);
  */
 LUA_API lua_State *
 luaT_state(void);
+
+/**
+ * Check if VM is in process of garbage collection
+ */
+LUA_API bool
+luaT_VMinGC(void);
 
 /**
  * Like lua_tolstring, but supports metatables, booleans and nil properly.
