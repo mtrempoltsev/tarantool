@@ -171,7 +171,7 @@ local function test_cancel_and_errinj(test, url, opts)
 end
 
 local function test_post_and_get(test, url, opts)
-    test:plan(21)
+    test:plan(23)
 
     local http = client.new()
     test:ok(http ~= nil, "client is created")
@@ -227,6 +227,7 @@ local function test_post_and_get(test, url, opts)
     r = responses.absent_get
     test:is(r.status, 500, "GET: absent method http code page exists")
     test:is(r.reason, 'Unknown', '500 - Unknown')
+    test:is(type(r.errmsg), 'string', 'check error message')
     test:is(r.body, "No such method", "GET: absent method right body")
 
     r = responses.empty_post
@@ -249,6 +250,7 @@ local function test_post_and_get(test, url, opts)
     r = responses.bad_get
     test:is(r.status, 404, "GET: http page not exists")
     test:is(r.reason, 'Unknown', '404 - Unknown')
+    test:is(type(r.errmsg), 'string', 'check error message')
     test:isnt(r.body:len(), 0, "GET: not empty body page not exists")
     test:ok(string.find(r.body, "Not Found"),
                 "GET: right body page not exists")

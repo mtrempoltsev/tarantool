@@ -398,6 +398,7 @@ httpc_execute(struct httpc_request *req, double timeout)
 	curl_easy_setopt(req->curl_request.easy, CURLOPT_HEADERDATA, (void *) req);
 	curl_easy_setopt(req->curl_request.easy, CURLOPT_PRIVATE, (void *) &req->curl_request);
 	curl_easy_setopt(req->curl_request.easy, CURLOPT_HTTPHEADER, req->headers);
+	curl_easy_setopt(req->curl_request.easy, CURLOPT_ERRORBUFFER, req->errmsg);
 
 	++env->stat.total_requests;
 

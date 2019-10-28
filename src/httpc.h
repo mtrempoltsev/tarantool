@@ -105,6 +105,11 @@ struct httpc_request {
 	int status;
 	/** Error message */
 	const char *reason;
+	/**
+	 * Buffer for error message obtained using
+	 * CURLOPT_ERRORBUFFER option.
+	 */
+        const char errmsg[CURL_ERROR_SIZE];
 	/** buffer of headers */
 	struct region resp_headers;
 	/** buffer of body */

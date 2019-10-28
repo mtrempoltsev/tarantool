@@ -335,6 +335,10 @@ luaT_httpc_request(lua_State *L)
 	lua_pushstring(L, req->reason);
 	lua_settable(L, -3);
 
+	lua_pushstring(L, "errmsg");
+	lua_pushstring(L, req->errmsg);
+	lua_settable(L, -3);
+
 	size_t headers_len = region_used(&req->resp_headers);
 	if (headers_len > 0) {
 		char *headers = region_join(&req->resp_headers, headers_len);
