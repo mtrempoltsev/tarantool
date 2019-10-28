@@ -67,10 +67,7 @@ test_run:cmd("switch replica1")
 ---
 - true
 ...
-cnt = box.space.test.index[0]:count()
----
-...
-box.space.test.index.primary:max()[1] == cnt - 1
+box.space.test.index.primary:max()[1] == box.space.test.index.primary:count() - 1
 ---
 - true
 ...

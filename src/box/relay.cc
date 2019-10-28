@@ -306,13 +306,14 @@ relay_initial_join(int fd, uint64_t sync, struct vclock *vclock)
 	});
 
 	/*
-	 * Sync WAL to make sure that all changes visible from
-	 * the frozen read view are successfully committed.
+	 * Make sure that current database state is flushed to
+	 * the WAL and obtain corresponding vclock.
 	 */
-	if (wal_sync() != 0)
+	struct wal_checkpoint checkpoint;
+	if (wal_begin_checkpoint(&checkpoint) != 0)
 		diag_raise();
 
-	vclock_copy(vclock, &replicaset.vclock);
+	vclock_copy(vclock, &checkpoint.vclock);
 
 	/* Respond to the JOIN request with the current vclock. */
 	struct xrow_header row;
